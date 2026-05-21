@@ -1,0 +1,1206 @@
+openapi: 3.0.3
+info:
+  title: RAG AI 知识库系统 API
+  description: |
+    基于 RAG 技术的个人知识库 AI 问答系统
+    
+    ## 认证说明
+    除登录/注册接口外，其他接口均需要在请求头中携带 JWT Token:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: http://production-server.com
+    description: Production server
+
+tags:
+  - name: 用户管理
+    description: 用户注册、登录、信息管理
+  - name: AI 对话
+    description: RAG 知识库对话和普通对话
+  - name: 知识库管理
+    description: 文件上传、查询、删除、下载
+  - name: 图像生成
+    description: AI 图像生成
+  - name: 敏感词管理
+    description: 敏感词 CRUD 操作
+  - name: 敏感词分类
+    description: 敏感词分类管理
+  - name: 分词统计
+    description: 分词数据统计
+  - name: 日志管理
+    description: 系统操作日志管理
+
+paths:
+  # ==================== 用户管理接口 ====================
+  /api/v1/user/register:
+    post:
+      tags:
+        - 用户管理
+      summary: 用户注册
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+      responses:
+        '200':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '400':
+          description: 参数错误
+        '500':
+          description: 系统错误
+
+  /api/v1/user/login:
+    post:
+      tags:
+        - 用户管理
+      summary: 用户登录
+      operationId: login
+      parameters:
+        - name: userName
+          in: query
+          required: false
+          schema:
+            type: string
+            default: admin
+          description: 用户名
+        - name: password
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "123456"
+          description: 密码
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserLoginVO'
+        '401':
+          description: 认证失败
+        '500':
+          description: 系统错误
+
+  /api/v1/user/updatePassword:
+    post:
+      tags:
+        - 用户管理
+      summary: 修改密码
+      operationId: updatePassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordDTO'
+      responses:
+        '200':
+          description: 修改密码成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '400':
+          description: 参数错误
+        '401':
+          description: 未授权
+
+  /api/v1/user/logout:
+    post:
+      tags:
+        - 用户管理
+      summary: 退出登录
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 退出成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+
+  /api/v1/user/addUser:
+    post:
+      tags:
+        - 用户管理
+      summary: 新增用户
+      operationId: addUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserDTO'
+      responses:
+        '200':
+          description: 新增成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+
+  /api/v1/user/page:
+    get:
+      tags:
+        - 用户管理
+      summary: 分页查询用户
+      operationId: pageQueryUsers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          required: true
+          schema:
+            type: integer
+            default: 10
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: phone
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+  /api/v1/user/status/{status}:
+    post:
+      tags:
+        - 用户管理
+      summary: 启用/禁用账号
+      operationId: startOrStop
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: path
+          required: true
+          schema:
+            type: integer
+            enum: [0, 1]
+            description: 0-禁用，1-启用
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 操作成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+
+  /api/v1/user/{id}:
+    get:
+      tags:
+        - 用户管理
+      summary: 根据 ID 查询用户
+      operationId: getUserById
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+
+  /api/v1/user/update:
+    put:
+      tags:
+        - 用户管理
+      summary: 编辑用户信息
+      operationId: updateUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: 编辑成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+
+  # ==================== AI 对话接口 ====================
+  /api/v1/ai/rag:
+    get:
+      tags:
+        - AI 对话
+      summary: RAG 知识库对话
+      operationId: ragChat
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: message
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "你好"
+          description: 用户问题
+        - name: prompt
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "你是一名 AI 助手，致力于帮助人们解决问题."
+          description: 系统提示语
+      responses:
+        '200':
+          description: 流式响应
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: 未授权
+
+  /api/v1/chat/stream:
+    get:
+      tags:
+        - AI 对话
+      summary: 普通对话（流式）
+      operationId: streamChat
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: message
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "你好"
+          description: 用户问题
+        - name: prompt
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "你是一名 AI 助手"
+          description: 系统提示语
+      responses:
+        '200':
+          description: 流式响应
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                format: binary
+
+  # ==================== 知识库管理接口 ====================
+  /api/v1/knowledge/file/upload:
+    post:
+      tags:
+        - 知识库管理
+      summary: 上传文件到知识库
+      operationId: uploadFile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: 文件列表（支持多文件）
+      responses:
+        '200':
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '400':
+          description: 请选择文件
+        '500':
+          description: 上传失败
+
+  /api/v1/knowledge/contents:
+    get:
+      tags:
+        - 知识库管理
+      summary: 查询文件列表
+      operationId: queryFiles
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: fileName
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+  /api/v1/knowledge/delete:
+    delete:
+      tags:
+        - 知识库管理
+      summary: 删除文件
+      operationId: deleteFiles
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: integer
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+
+  /api/v1/knowledge/download:
+    get:
+      tags:
+        - 知识库管理
+      summary: 下载文件
+      operationId: downloadFiles
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: integer
+      responses:
+        '200':
+          description: 下载成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+
+  # ==================== 图像生成接口 ====================
+  /api/v1/draw/image:
+    get:
+      tags:
+        - 图像生成
+      summary: 生成图片
+      operationId: generateImage
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: prompt
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 图片描述文本
+      responses:
+        '200':
+          description: 图片生成成功
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '500':
+          description: 生成失败
+
+  # ==================== 敏感词管理接口 ====================
+  /api/v1/sensitive/add:
+    post:
+      tags:
+        - 敏感词管理
+      summary: 新增敏感词
+      operationId: addSensitiveWord
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SensitiveWord'
+      responses:
+        '200':
+          description: 新增成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+
+  /api/v1/sensitive/{id}:
+    delete:
+      tags:
+        - 敏感词管理
+      summary: 删除敏感词
+      operationId: deleteSensitiveWord
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                type: boolean
+
+  /api/v1/sensitive/batch:
+    post:
+      tags:
+        - 敏感词管理
+      summary: 批量删除敏感词
+      operationId: deleteSensitiveWords
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: integer
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+
+  /api/v1/sensitive:
+    put:
+      tags:
+        - 敏感词管理
+      summary: 更新敏感词
+      operationId: updateSensitiveWord
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SensitiveWord'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                type: boolean
+
+    get:
+      tags:
+        - 敏感词管理
+      summary: 查询所有敏感词
+      operationId: getAllSensitiveWords
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SensitiveWord'
+
+  /api/v1/sensitive/page:
+    get:
+      tags:
+        - 敏感词管理
+      summary: 分页查询敏感词
+      operationId: getSensitiveWordPage
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          required: true
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/IPage_SensitiveWord_'
+
+  # ==================== 敏感词分类接口 ====================
+  /api/v1/category/add:
+    post:
+      tags:
+        - 敏感词分类
+      summary: 新增分类
+      operationId: createCategory
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SensitiveCategory'
+      responses:
+        '200':
+          description: 新增成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: boolean
+
+  /api/v1/category/batch:
+    delete:
+      tags:
+        - 敏感词分类
+      summary: 批量删除分类
+      operationId: batchDeleteCategories
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: integer
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: boolean
+
+  /api/v1/category/update:
+    put:
+      tags:
+        - 敏感词分类
+      summary: 更新分类
+      operationId: updateCategory
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SensitiveCategory'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: boolean
+
+  /api/v1/category/page:
+    get:
+      tags:
+        - 敏感词分类
+      summary: 分页查询分类
+      operationId: getCategoryPage
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/IPage_SensitiveCategory_'
+
+  /api/v1/category/list:
+    get:
+      tags:
+        - 敏感词分类
+      summary: 获取全部列表
+      operationId: listCategories
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SensitiveCategory'
+
+  # ==================== 分词统计接口 ====================
+  /api/v1/frequency/page:
+    post:
+      tags:
+        - 分词统计
+      summary: 分页查询分词统计
+      operationId: pageQueryFrequency
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WordFrequencyPageQueryDTO'
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+  /api/v1/frequency/clean:
+    delete:
+      tags:
+        - 分词统计
+      summary: 清空分词数据
+      operationId: cleanFrequency
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 清空成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+
+  /api/v1/frequency/getList:
+    get:
+      tags:
+        - 分词统计
+      summary: 获取分词列表（带缓存）
+      operationId: getFrequencyList
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WordFrequency'
+
+  # ==================== 日志管理接口 ====================
+  /api/v1/log/page:
+    get:
+      tags:
+        - 日志管理
+      summary: 分页查询日志
+      operationId: getLogInfoPage
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          required: true
+          schema:
+            type: integer
+            default: 10
+        - name: methodName
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: className
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: requestParams
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/IPage_LogInfo_'
+
+  /api/v1/log/batch:
+    post:
+      tags:
+        - 日志管理
+      summary: 批量删除日志
+      operationId: deleteLogInfos
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Token 认证
+
+  schemas:
+    BaseResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "success"
+        data:
+          type: object
+          nullable: true
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        userName:
+          type: string
+        password:
+          type: string
+          writeOnly: true
+        name:
+          type: string
+        phone:
+          type: string
+        sex:
+          type: string
+          enum: ["男", "女"]
+        idNumber:
+          type: string
+        status:
+          type: integer
+          enum: [0, 1]
+
+    UserRegisterRequest:
+      type: object
+      required:
+        - userName
+        - password
+      properties:
+        userName:
+          type: string
+        password:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        sex:
+          type: string
+        idNumber:
+          type: string
+
+    UserLoginVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        userName:
+          type: string
+        name:
+          type: string
+        token:
+          type: string
+
+    UserDTO:
+      type: object
+      properties:
+        userName:
+          type: string
+        password:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        sex:
+          type: string
+        idNumber:
+          type: string
+
+    PasswordDTO:
+      type: object
+      required:
+        - id
+        - oldPassword
+        - newPassword
+        - confirmPassword
+      properties:
+        id:
+          type: integer
+        oldPassword:
+          type: string
+        newPassword:
+          type: string
+        confirmPassword:
+          type: string
+
+    PageResult:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            type: object
+        total:
+          type: integer
+
+    IPage_SensitiveWord_:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/SensitiveWord'
+        total:
+          type: integer
+        size:
+          type: integer
+        current:
+          type: integer
+        pages:
+          type: integer
+
+    IPage_SensitiveCategory_:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/SensitiveCategory'
+        total:
+          type: integer
+        size:
+          type: integer
+        current:
+          type: integer
+        pages:
+          type: integer
+
+    IPage_LogInfo_:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogInfo'
+        total:
+          type: integer
+        size:
+          type: integer
+        current:
+          type: integer
+        pages:
+          type: integer
+
+    SensitiveWord:
+      type: object
+      properties:
+        id:
+          type: integer
+        word:
+          type: string
+        categoryId:
+          type: integer
+        status:
+          type: string
+          enum: ["0", "1"]
+        createdAt:
+          type: string
+          format: date
+        updatedAt:
+          type: string
+          format: date
+
+    SensitiveCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        createdTime:
+          type: string
+          format: date
+        updateTime:
+          type: string
+          format: date
+
+    WordFrequency:
+      type: object
+      properties:
+        id:
+          type: integer
+        word:
+          type: string
+        frequency:
+          type: integer
+        createTime:
+          type: string
+          format: date-time
+        updateTime:
+          type: string
+          format: date-time
+
+    WordFrequencyPageQueryDTO:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        word:
+          type: string
+        startTime:
+          type: string
+          format: date
+        endTime:
+          type: string
+          format: date
+
+    LogInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        className:
+          type: string
+        methodName:
+          type: string
+        requestParams:
+          type: string
+        responseResult:
+          type: string
+        executionTime:
+          type: integer
+        createTime:
+          type: string
+          format: date-time
+
+    QueryFileDTO:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        fileName:
+          type: string
+
+    AliOssFile:
+      type: object
+      properties:
+        id:
+          type: integer
+        fileName:
+          type: string
+        url:
+          type: string
+        vectorId:
+          type: string
+        createTime:
+          type: string
+          format: date-time
+        updateTime:
+          type: string
+          format: date-time

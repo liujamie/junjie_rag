@@ -1,0 +1,10 @@
+#junjie:
+#  alioss:
+#    endpoint: oss-cn-beijing.aliyuncs.com
+#    access-key-id:
+#    access-key-secret:
+#    bucket-name: junjie-rag
+#  dashscope:
+#    api-key:
+#  websearch:
+#    api-key:
