@@ -19,6 +19,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public BaseResponse<?> runtimeExceptionHandler(RuntimeException e) {
+        log.error("系统异常: ", e);
         return ResultUtils.error(ErrorCode.SYSTEM_ERROR, e.getMessage());
     }
 

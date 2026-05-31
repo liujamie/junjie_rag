@@ -16,8 +16,17 @@ spring:
         url: "http://127.0.0.1:8080/search"
         nums: 10
         engines: "duckduckgo,google,bing,brave,mojeek,presearch,qwant,startpage,yahoo,arxiv,crossref,google_scholar,internetarchivescholar,semantic_scholar"
-    dashscope:
-      api-key: ${DASHSCOPE_API_KEY}
+    openai:
+      api-key: ${DEEPSEEK_API_KEY}
+      base-url: https://api.deepseek.com
+      chat:
+        options:
+          model: deepseek-v4-flash
+    ollama:
+      base-url: http://localhost:11434
+      embedding:
+        enabled: true
+        model: bge-m3
 
     vectorstore:
       milvus:
@@ -28,10 +37,16 @@ spring:
           password: "" # default: milvus
         databaseName: "default"
         collectionName: "vector_store" # default: vector_store
-        embeddingDimension: 1536 # default: 1536
+        embeddingDimension: 1024 # BGE-M3 维度
         indexType: IVF_FLAT # default: IVF_FLAT
         metricType: COSINE # default: COSINE
         initializeSchema: true # 自动创建集合
+
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+
   datasource:
     username: root
     password: root

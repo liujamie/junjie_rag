@@ -81,10 +81,4 @@ public class ChatController {
                 .stream()
                 .content();
     }
-
-
-
-
-
-
 }

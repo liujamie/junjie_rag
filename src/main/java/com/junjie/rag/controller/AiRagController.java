@@ -22,7 +22,6 @@ import com.junjie.rag.common.ApplicationConstant;
 import com.junjie.rag.context.BaseContext;
 import com.junjie.rag.entity.SensitiveWord;
 import com.junjie.rag.service.SensitiveWordService;
-import com.junjie.rag.tools.RagTool;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
@@ -100,7 +99,7 @@ public class AiRagController {
 //
 //        if (isSql) {
 //
-////            return ;
+//            return ;
 //
 //        }
 

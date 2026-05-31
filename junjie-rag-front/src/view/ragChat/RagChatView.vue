@@ -92,21 +92,32 @@ const sendMessage = async (apiMethod: (message: string) => Promise<Response>) =>
     }
 
     const decoder = new TextDecoder()
-    assistantMessage.content = ''  // 清空"正在思考中"的文本
+    assistantMessage.content = ''
 
     while (true) {
-      window.console.info(1111);
       const { value, done } = await reader.read()
       if (done) break
 
       const text = decoder.decode(value)
-      assistantMessage.content += text
+      // 处理 SSE 格式（text/event-stream）：去掉 "data:" 前缀
+      const lines = text.split('\n')
+      for (const line of lines) {
+        if (line.startsWith('data:')) {
+          assistantMessage.content += line.slice(5)
+        } else if (line.trim() !== '') {
+          // 非 SSE 格式（如普通文本流）直接追加
+          assistantMessage.content += line
+        }
+      }
       await nextTick()
       scrollToBottom()
     }
   } catch (error) {
-    console.error('Error:', error)
+    console.error('RAG对话错误:', error)
     assistantMessage.content = '抱歉，发生了错误，请稍后重试。'
+    if (error instanceof Error) {
+      console.error('错误详情:', error.message)
+    }
   } finally {
     isLoading.value = false
     assistantMessage.isTyping = false

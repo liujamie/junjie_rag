@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"d:\\\\common files\\\\My Desktop\\\\v1.0\")",
+      "Read(//d/common files/My Desktop/v1.0/**)",
+      "Bash(mv \"d:\\\\common files\\\\My Desktop\\\\v1.0\\\\xushu-rag-ai-front\\\\xushu-rag-ai-front\" \"d:\\\\common files\\\\My Desktop\\\\v1.0\\\\xushu-rag-ai-front\\\\junjie-rag-ai-front\")",
+      "Bash(mv \"d:\\\\common files\\\\My Desktop\\\\v1.0\\\\xushu-rag-ai-front\" \"d:\\\\common files\\\\My Desktop\\\\v1.0\\\\junjie-rag-ai-front\")",
+      "Bash(mv \"d:\\\\common files\\\\My Desktop\\\\v1.0\\\\xushu-rag-ai-front.zip\" \"d:\\\\common files\\\\My Desktop\\\\v1.0\\\\junjie-rag-ai-front.zip\")",
+      "Bash(mv \"xushu-rag-ai-front\" \"junjie-rag-ai-front\")",
+      "Bash(mv \"xushu-rag-ai-front.zip\" \"junjie-rag-ai-front.zip\")",
+      "Bash(cmd.exe /c \"rename \"d:\\\\common files\\\\My Desktop\\\\v1.0\\\\xushu-rag-ai-front\" junjie-rag-ai-front\")",
+      "Bash(cmd.exe /c \"cd /d \"d:\\\\common files\\\\My Desktop\\\\v1.0\" && rename xushu-rag-ai-front junjie-rag-ai-front\")",
+      "mcp__codegraph__codegraph_files",
+      "Bash(npx vite *)"
+    ],
+    "additionalDirectories": [
+      "d:\\common files\\My Desktop\\v1.0\\xushu-rag-ai-front\\xushu-rag-ai-front"
+    ]
+  }
+}
