@@ -26,3 +26,6 @@ replay_pid*
 # Maven build output
 target/
 idea/
+.claude/
+.idea/
+.codegraph/
