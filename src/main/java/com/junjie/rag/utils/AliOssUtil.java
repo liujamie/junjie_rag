@@ -4,7 +4,9 @@ import com.aliyun.oss.ClientException;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.OSSException;
+import com.aliyun.oss.model.GeneratePresignedUrlRequest;
 import com.aliyun.oss.model.GetObjectRequest;
+import com.aliyun.oss.model.ResponseHeaderOverrides;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.SneakyThrows;
@@ -13,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Date;
 import java.net.URL;
 import java.util.concurrent.TimeUnit;
 
@@ -146,7 +150,30 @@ public class AliOssUtil {
         }
     }
 
-
-
+    /**
+     * 生成签名URL（临时可访问，10分钟有效）
+     * @param objectName OSS中的对象名
+     * @param fileName   浏览器下载时的文件名（UTF-8 编码）
+     */
+    public String generateSignedUrl(String objectName, String fileName) {
+        OSS ossClient = new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
+        try {
+            Date expiration = new Date(System.currentTimeMillis() + 600_000);
+            GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectName);
+            request.setExpiration(expiration);
+            // 设置下载文件名
+            ResponseHeaderOverrides headers = new ResponseHeaderOverrides();
+            headers.setContentDisposition("attachment; filename=\"" + fileName + "\"; filename*=UTF-8''" +
+                    java.net.URLEncoder.encode(fileName, "UTF-8").replace("+", "%20"));
+            request.setResponseHeaders(headers);
+            URL signedUrl = ossClient.generatePresignedUrl(request);
+            return signedUrl.toString();
+        } catch (Exception e) {
+            log.error("生成签名URL失败", e);
+            return null;
+        } finally {
+            ossClient.shutdown();
+        }
+    }
 
 }

@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/target
+**/.git
+**/.idea
+**/*.iml
+**/data
+**/logs
+*.md
+Dockerfile
+.dockerignore
+docker-compose*.yml
+.env

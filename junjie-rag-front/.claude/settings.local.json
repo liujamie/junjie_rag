@@ -11,7 +11,17 @@
       "Bash(cmd.exe /c \"rename \"d:\\\\common files\\\\My Desktop\\\\v1.0\\\\xushu-rag-ai-front\" junjie-rag-ai-front\")",
       "Bash(cmd.exe /c \"cd /d \"d:\\\\common files\\\\My Desktop\\\\v1.0\" && rename xushu-rag-ai-front junjie-rag-ai-front\")",
       "mcp__codegraph__codegraph_files",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(powershell -NoProfile -Command '$PSVersionTable')",
+      "Bash(pwsh -NoProfile -Command '$PSVersionTable')",
+      "Bash(winget list *)",
+      "Bash(command -v wt)",
+      "Bash(scoop list *)",
+      "Bash(winget upgrade *)",
+      "Bash(winget install *)",
+      "Bash(oh-my-posh font *)",
+      "Bash(oh-my-posh.exe font *)",
+      "Bash(powershell.exe -NoProfile -Command \"oh-my-posh font install JetBrainsMono\")"
     ],
     "additionalDirectories": [
       "d:\\common files\\My Desktop\\v1.0\\xushu-rag-ai-front\\xushu-rag-ai-front"

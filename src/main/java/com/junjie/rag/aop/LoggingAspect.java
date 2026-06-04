@@ -2,7 +2,7 @@ package com.junjie.rag.aop;
 
 import com.junjie.rag.annotation.Loggable;
 import com.junjie.rag.entity.LogInfo;
-import com.junjie.rag.service.LogInfoService;
+import com.junjie.rag.service.impl.AsyncLogService;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
@@ -18,7 +18,7 @@ import java.util.*;
 public class LoggingAspect {
 
     @Autowired
-    private LogInfoService logInfoService;
+    private AsyncLogService asyncLogService;
     @Pointcut("@annotation(loggable)")
     public void loggableMethods(com.junjie.rag.annotation.Loggable loggable) {
     }
@@ -64,7 +64,7 @@ public class LoggingAspect {
 
 
 
-        logInfoService.save(logInfo);
+        asyncLogService.saveLog(logInfo);
     }
 }
     

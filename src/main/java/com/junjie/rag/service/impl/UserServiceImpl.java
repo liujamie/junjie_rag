@@ -130,8 +130,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         BeanUtils.copyProperties(user, userResult);
         //设置账号的状态，默认正常状态 1表示正常 0表示锁定
         userResult.setStatus(StatusConstant.ENABLE);
-        //设置密码，默认密码123456
-        userResult.setPassword(DigestUtils.md5DigestAsHex(PasswordConstant.DEFAULT_PASSWORD.getBytes()));
+        //设置密码，用用户提交的密码进行md5加密
+        userResult.setPassword(DigestUtils.md5DigestAsHex(user.getPassword().getBytes()));
 
         //设置当前记录的创建时间和修改时间
         userResult.setCreateTime(LocalDate.now());

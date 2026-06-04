@@ -2,6 +2,7 @@ package com.junjie.rag.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.junjie.rag.common.ApplicationConstant;
 import com.junjie.rag.common.BaseResponse;
 import com.junjie.rag.common.ResultUtils;
@@ -11,7 +12,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -32,6 +36,10 @@ public class SensitiveWordController {
     @Autowired
     private SensitiveWordService sensitiveWordService;
 
+    @Autowired
+    @Qualifier("sensitiveWordCache")
+    private Cache<String, List<SensitiveWord>> sensitiveWordCache;
+
     @Operation(summary = "新增敏感词")
     @PostMapping("/add")
     public BaseResponse addSensitiveWord(@RequestBody SensitiveWord sensitiveWord) {
@@ -41,6 +49,7 @@ public class SensitiveWordController {
         sensitiveWord.setUpdatedAt(LocalDate.now().toString());
         boolean save = sensitiveWordService.save(sensitiveWord);
         if (save){
+            sensitiveWordCache.invalidate("all");
             return ResultUtils.success(true);
         }
         return ResultUtils.error("新增失败");
@@ -49,7 +58,9 @@ public class SensitiveWordController {
     @Operation(summary = "删除敏感词")
     @DeleteMapping("/{id}")
     public boolean deleteSensitiveWord(@PathVariable Integer id) {
-        return sensitiveWordService.removeById(id);
+        boolean result = sensitiveWordService.removeById(id);
+        if (result) sensitiveWordCache.invalidate("all");
+        return result;
     }
 
     @Operation(summary = "批量删除敏感词")
@@ -57,6 +68,7 @@ public class SensitiveWordController {
     public BaseResponse deleteSensitiveWords(@RequestBody List<Integer> ids) {
         boolean b = sensitiveWordService.removeByIds(ids);
         if (b){
+            sensitiveWordCache.invalidate("all");
             return ResultUtils.success("删除成功");
         }
         return ResultUtils.error("删除失败");
@@ -65,7 +77,9 @@ public class SensitiveWordController {
     @Operation(summary = "更新敏感词")
     @PutMapping
     public boolean updateSensitiveWord(@RequestBody SensitiveWord sensitiveWord) {
-        return sensitiveWordService.updateById(sensitiveWord);
+        boolean result = sensitiveWordService.updateById(sensitiveWord);
+        if (result) sensitiveWordCache.invalidate("all");
+        return result;
     }
 
     @Operation(summary = "分页查询敏感词")

@@ -108,6 +108,7 @@ public class UserController {
                 .userName(user.getUserName())
                 .name(user.getName())
                 .token(token)
+                .role(user.getRole())
                 .build();
 
         return ResultUtils.success(userLoginVO);

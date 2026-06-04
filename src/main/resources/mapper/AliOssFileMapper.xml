@@ -21,4 +21,9 @@
         WHERE file_name LIKE CONCAT('%', #{fileName}, '%')
         ORDER BY id
     </select>
+    <select id="findListByFileName" resultType="com.junjie.rag.entity.AliOssFile">
+        SELECT * FROM ali_oss_file
+        WHERE file_name LIKE CONCAT('%', #{fileName}, '%')
+        ORDER BY id
+    </select>
 </mapper>

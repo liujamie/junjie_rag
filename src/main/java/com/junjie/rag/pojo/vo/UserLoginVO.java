@@ -26,4 +26,6 @@ public class UserLoginVO {
     private String name;
 
     private String token;
+
+    private String role;
 }

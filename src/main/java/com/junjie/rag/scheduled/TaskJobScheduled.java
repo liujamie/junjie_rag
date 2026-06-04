@@ -66,6 +66,11 @@ public class TaskJobScheduled {
         // 获取所有日志
         List<LogInfo> list = logInfoService.list((Wrapper<LogInfo>) null);
         for (LogInfo logInfo : list){
+            // 跳过聊天消息日志，避免用户对话内容污染热词
+            String methodName = logInfo.getMethodName();
+            if ("streamRagChat".equals(methodName) || "generate".equals(methodName)) {
+                continue;
+            }
             // 将日志中的参数转为字符串
             text.append(logInfo.getRequestParams());
         }

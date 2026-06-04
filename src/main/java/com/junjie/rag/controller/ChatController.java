@@ -1,29 +1,29 @@
 package com.junjie.rag.controller;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.junjie.rag.annotation.Loggable;
 import com.junjie.rag.common.ApplicationConstant;
-import com.junjie.rag.common.ErrorCode;
 import com.junjie.rag.context.BaseContext;
 import com.junjie.rag.entity.SensitiveWord;
-import com.junjie.rag.exception.BusinessException;
 import com.junjie.rag.service.SensitiveWordService;
-import com.junjie.rag.utils.SearchUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.PromptChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.vectorstore.SearchRequest;
-import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Flux;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
 
 /**
@@ -45,6 +45,13 @@ public class ChatController {
     @Autowired
     private SensitiveWordService sensitiveWordService;
 
+    @Autowired
+    @Qualifier("aiStreamExecutor")
+    private ExecutorService aiStreamExecutor;
+
+    @Autowired
+    @Qualifier("sensitiveWordCache")
+    private Cache<String, List<SensitiveWord>> sensitiveWordCache;
 
     public ChatController(ChatClient.Builder builder,ChatMemory chatMemory) {
 
@@ -62,23 +69,49 @@ public class ChatController {
     @Operation(summary = "stream",description = "流式对话接口")
     @GetMapping(value = "/stream",produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Loggable("message")
-    public Flux<String> streamRagChat(@RequestParam(value = "message", defaultValue = "你好" ) String message,
+    public SseEmitter streamRagChat(@RequestParam(value = "message", defaultValue = "你好" ) String message,
                                       @RequestParam(value = "prompt", defaultValue = "你是一名AI助手，致力于帮助人们解决问题.") String prompt){
-        List<SensitiveWord> list = sensitiveWordService.list();
+        List<SensitiveWord> list = sensitiveWordCache.get("all", k -> sensitiveWordService.list());
 
-        for(SensitiveWord sensitiveWord: list){
-            if (message.contains(sensitiveWord.getWord())){
-                return Flux.just("包含敏感词:" + sensitiveWord.getWord());
+        for (SensitiveWord sensitiveWord : list) {
+            if (message.contains(sensitiveWord.getWord())) {
+                SseEmitter emitter = new SseEmitter();
+                try {
+                    emitter.send("包含敏感词:" + sensitiveWord.getWord());
+                } catch (IOException ignored) {
+                }
+                emitter.complete();
+                return emitter;
             }
         }
 
+        SseEmitter emitter = new SseEmitter(300000L);
         Long userId = BaseContext.getCurrentId();
-        return chatClient.prompt()
-                .system(prompt)
-                .advisors(a -> a
-                        .param(ChatMemory.CONVERSATION_ID, userId))
-                .user(message)
-                .stream()
-                .content();
+
+        aiStreamExecutor.execute(() -> {
+            try {
+                chatClient.prompt()
+                        .system(prompt)
+                        .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userId))
+                        .user(message)
+                        .stream()
+                        .content()
+                        .subscribe(
+                                chunk -> {
+                                    try {
+                                        emitter.send(chunk);
+                                    } catch (IOException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                },
+                                emitter::completeWithError,
+                                emitter::complete
+                        );
+            } catch (Exception e) {
+                emitter.completeWithError(e);
+            }
+        });
+
+        return emitter;
     }
 }

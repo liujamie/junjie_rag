@@ -1,7 +1,10 @@
 package com.junjie.rag.config;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.junjie.rag.common.ApplicationConstant;
 import com.junjie.rag.common.JwtTokenUserInterceptor;
+import com.junjie.rag.entity.SensitiveWord;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +12,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author junjie
@@ -27,7 +33,7 @@ public class ApplicationConfig implements WebMvcConfigurer {
      */
     @Bean
     public TokenTextSplitter tokenTextSplitter() {
-        return new TokenTextSplitter();
+        return new TokenTextSplitter(1000, 200, 2000, 100, true);
     }
 
     @Bean
@@ -36,6 +42,21 @@ public class ApplicationConfig implements WebMvcConfigurer {
                 .build();
     }
 
+    @Bean("sensitiveWordCache")
+    public Cache<String, List<SensitiveWord>> sensitiveWordCache() {
+        return Caffeine.newBuilder()
+                .expireAfterWrite(30, TimeUnit.MINUTES)
+                .maximumSize(1)
+                .build();
+    }
+
+    @Bean("ragResultCache")
+    public Cache<String, String> ragResultCache() {
+        return Caffeine.newBuilder()
+                .expireAfterWrite(5, TimeUnit.MINUTES)
+                .maximumSize(500)
+                .build();
+    }
 
     /**
      * 注册拦截器

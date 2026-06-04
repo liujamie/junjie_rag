@@ -63,6 +63,11 @@ public class User {
     private Integer status;
 
     /**
+     * 角色 admin/user
+     */
+    private String role;
+
+    /**
      * 创建时间
      */
     private LocalDate createTime;

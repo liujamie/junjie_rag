@@ -112,3 +112,26 @@ CREATE TABLE `sensitive_category` (
                                       `status` VARCHAR(50) COMMENT '状态',
                                       PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='敏感词分类表';
+
+-- 会话历史存储表
+-- 在 MySQL 中执行
+DROP TABLE IF EXISTS `conversation`;
+CREATE TABLE IF NOT EXISTS conversation (
+                                            id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '会话ID',
+                                            user_id     BIGINT       NOT NULL COMMENT '用户ID, 关联 tb_user.id',
+                                            title       VARCHAR(100) DEFAULT '新对话' COMMENT '会话标题',
+    status      TINYINT      DEFAULT 1 COMMENT '状态: 1-正常 0-删除',
+    created_time DATETIME    DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_time DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_user_id (user_id)
+    ) COMMENT '会话表';
+
+DROP TABLE IF EXISTS `chat_message`;
+CREATE TABLE IF NOT EXISTS chat_message (
+                                            id              BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '消息ID',
+                                            conversation_id BIGINT       NOT NULL COMMENT '会话ID',
+                                            role            VARCHAR(20)  NOT NULL COMMENT '角色: user/assistant',
+    content         TEXT         COMMENT '消息内容',
+    created_time    DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_conversation_id (conversation_id)
+    ) COMMENT '聊天消息表';

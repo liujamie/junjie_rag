@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.junjie.rag.entity.AliOssFile;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -17,6 +18,8 @@ import org.apache.ibatis.annotations.Mapper;
 public interface AliOssFileMapper extends BaseMapper<AliOssFile> {
 
     IPage<AliOssFile> findByFileNameContaining(Page<AliOssFile> page, String fileName);
+
+    List<AliOssFile> findListByFileName(String fileName);
 }
 
 

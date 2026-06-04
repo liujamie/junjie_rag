@@ -1,10 +1,10 @@
 <template>
-  <div id="basic-layout">
+  <div id="basic-layout" class="basic-layout">
     <el-container>
-      <el-aside :style="asideStyle">
+      <el-aside :width="asideWidth" class="layout-aside">
         <BasicAside @change-aside="changeAside" />
       </el-aside>
-      <el-main style="margin-left: 10px; background-color: #f3f3f3">
+      <el-main class="layout-main">
         <RouterView />
       </el-main>
     </el-container>
@@ -12,23 +12,33 @@
 </template>
 
 <script setup lang="ts">
-const asideStyle = ref({
-  height: "95vh",
-  width: "210px",
-  // transition: "width 0.5s",
-});
-const changeAside = (isCollapse: boolean) => {
-  if (isCollapse) {
-    asideStyle.value.width = "auto";
-  } else {
-    // 动态变到150px
-    asideStyle.value.width = "200px";
-  }
+const isCollapse = ref(false);
+
+const asideWidth = computed(() => (isCollapse.value ? "65px" : "var(--sidebar-width)"));
+
+const changeAside = (collapse: boolean) => {
+  isCollapse.value = collapse;
 };
 </script>
 
 <style scoped lang="less">
-#basic-layout {
-  margin: 10px;
+.basic-layout {
+  height: 100vh;
+  overflow: hidden;
+
+  .layout-aside {
+    height: 100vh;
+    overflow: hidden;
+    background: var(--bg-sidebar);
+    transition: width var(--transition-base);
+    z-index: 10;
+  }
+
+  .layout-main {
+    height: 100vh;
+    padding: 0;
+    overflow: hidden;
+    background: var(--bg-body);
+  }
 }
 </style>

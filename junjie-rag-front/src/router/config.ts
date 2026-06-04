@@ -35,7 +35,7 @@ let routes = [
     name: "draw",
     component: () => import("@/view/draw/DrawImageView.vue"),
     meta: {
-      isMenu: true,
+      isMenu: false,
       description: "AI绘画",
       icon: "PictureRounded",
       requiresAuth: true,
