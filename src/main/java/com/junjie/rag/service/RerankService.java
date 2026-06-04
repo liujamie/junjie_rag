@@ -23,9 +23,8 @@ public class RerankService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    private static final String RERANK_URL = "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank";
+    private static final String RERANK_URL = "https://dashscope.aliyuncs.com/compatible-api/v1/reranks";
 
-    /** 发送给 rerank 模型时单条文档的最大字符数，避免触发模型长度限制 */
     @Value("${dashscope.api-key:}")
     private String dashscopeApiKey;
 
@@ -48,18 +47,13 @@ public class RerankService {
 
         try {
             JSONObject requestBody = new JSONObject();
-            requestBody.put("model", "qwen3-vl-rerank");
+            requestBody.put("model", "qwen3-rerank");
+            requestBody.put("query", query);
+            requestBody.put("top_n", documents.size());
 
-            JSONObject input = new JSONObject();
-            input.put("query", query);
             JSONArray docArray = new JSONArray();
             docArray.addAll(documents.stream().map(Document::getText).toList());
-            input.put("documents", docArray);
-            requestBody.put("input", input);
-
-            JSONObject params = new JSONObject();
-            params.put("top_n", documents.size());
-            requestBody.put("parameters", params);
+            requestBody.put("documents", docArray);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -69,7 +63,8 @@ public class RerankService {
             ResponseEntity<String> response = restTemplate.postForEntity(RERANK_URL, entity, String.class);
 
             JSONObject body = JSON.parseObject(response.getBody());
-            JSONArray results = body.getJSONObject("output").getJSONArray("results");
+
+            JSONArray results = body.getJSONArray("results");
 
             if (results == null || results.isEmpty()) {
                 log.warn("Rerank 返回空结果，使用原始排序");

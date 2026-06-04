@@ -55,7 +55,7 @@
             </el-avatar>
           </div>
           <div class="message-bubble" :class="{ 'typing-bubble': message.isTyping }">
-            <div class="message-text" :class="{ 'streaming-text': message.isTyping }" v-html="message.isTyping ? escapeHtml(message.content) : renderMarkdown(message.content)"></div>
+            <div class="message-text" v-html="renderMarkdown(message.content)"></div>
             <button
               v-if="!message.isTyping"
               class="copy-btn"
@@ -82,7 +82,7 @@
             :rows="1"
             :autosize="{ minRows: 1, maxRows: 5 }"
             placeholder="输入你的问题..."
-            @keyup.enter.prevent="handleSend"
+            @keydown.enter.prevent="handleSend"
             class="chat-input"
           />
           <div class="input-actions">
@@ -359,12 +359,6 @@ const scrollToBottom = () => {
   })
 }
 
-const escapeHtml = (text: string) => {
-  const div = document.createElement('div')
-  div.textContent = text
-  return div.innerHTML
-}
-
 const copyMessage = async (content: string) => {
   try {
     await navigator.clipboard.writeText(content)
@@ -584,12 +578,8 @@ onMounted(() => {
   }
 }
 
-.streaming-text {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
 .message-text {
+  white-space: pre-wrap;
   word-break: break-word;
 
   :deep(p) { margin: 0 0 8px; &:last-child { margin-bottom: 0; } }

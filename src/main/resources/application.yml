@@ -99,8 +99,7 @@ junjie:
     api-key: ""
 
 dashscope:
-  api-key: "sk-16108d3005e9420ba5d2f52daf2f40e8"
-#  api-key: ${DASHSCOPE_API_KEY}
+  api-key: ${DASHSCOPE_API_KEY}
 
 
 logging:

@@ -14,13 +14,20 @@ const fileService = axios.create({
 });
 
 // 上传知识库接口
-export const uploadFileApi = async (filesList: File[]): Promise<Res> => {
+export const uploadFileApi = async (filesList: File[], onProgress?: (percent: number) => void): Promise<Res> => {
   let formData = new FormData();
   filesList.map((e) => {
     formData.append("file", e);
   });
 
-  return service.post(KnowApi.UploadFile, formData);
+  return service.post(KnowApi.UploadFile, formData, {
+    onUploadProgress: onProgress ? (progressEvent) => {
+      if (progressEvent.total) {
+        const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+        onProgress(percent);
+      }
+    } : undefined,
+  });
 };
 
 // 查询所有知识库接口

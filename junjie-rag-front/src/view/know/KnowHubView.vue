@@ -25,11 +25,11 @@
       <!-- Upload Zone -->
       <div
         class="upload-zone"
-        :class="{ 'is-dragover': isDragOver }"
+        :class="{ 'is-dragover': isDragOver, 'is-uploading': isUploading }"
         @dragover.prevent="isDragOver = true"
         @dragleave.prevent="isDragOver = false"
         @drop.prevent="handleDrop"
-        @click="triggerFileInput"
+        @click="!isUploading && triggerFileInput()"
       >
         <input
           ref="fileInputRef"
@@ -46,12 +46,29 @@
             </svg>
           </div>
           <div class="upload-zone-text">
-            <span class="upload-primary">点击或拖拽文件上传</span>
-            <span class="upload-secondary">支持 PDF、DOC、MD、Excel、TXT 等格式，最大 100MB</span>
+            <template v-if="isProcessing">
+              <span class="upload-primary">后台处理中，请稍候...</span>
+              <span class="upload-secondary">文件正在解析和向量化</span>
+            </template>
+            <template v-else-if="isUploading">
+              <span class="upload-primary">上传中 {{ uploadProgress }}%</span>
+              <span class="upload-secondary">{{ fileList.length }} 个文件正在上传</span>
+            </template>
+            <template v-else>
+              <span class="upload-primary">点击或拖拽文件上传</span>
+              <span class="upload-secondary">支持 PDF、DOC、MD、Excel、TXT 等格式，最大 100MB</span>
+            </template>
           </div>
         </div>
+        <!-- Progress bar -->
+        <div v-if="isUploading && uploadProgress > 0" class="upload-progress">
+          <div class="progress-bar" :style="{ width: uploadProgress + '%' }"></div>
+        </div>
+        <div v-if="isProcessing" class="upload-progress">
+          <div class="progress-bar is-processing"></div>
+        </div>
         <!-- Floating file previews -->
-        <div v-if="fileList?.length" class="upload-pending">
+        <div v-if="fileList?.length && !isUploading && !isProcessing" class="upload-pending">
           <el-tag
             v-for="(f, i) in fileList"
             :key="i"
@@ -178,7 +195,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, onMounted, onUnmounted } from "vue"
 import { ElMessage, ElMessageBox } from "element-plus"
 import { uploadFileApi, queryFileApi, deleteFileApi, downloadFileApi } from "@/api/KnowHubApi"
 import type { StoreFile } from "@/api/data"
@@ -188,6 +205,8 @@ import { format } from "date-fns"
 const storeFileData = ref<StoreFile[]>([])
 const queryFileDto = ref<QueryFileDto>({ page: 1, pageSize: 12, fileName: "" })
 const isUploading = ref(false)
+const uploadProgress = ref(0)
+const isProcessing = ref(false)
 const isLoading = ref(false)
 const storeFileTotal = ref(0)
 const selectedIds = ref(new Set<number>())
@@ -235,11 +254,48 @@ const uploadFile = () => {
     if (file.size > maxSize) { ElMessage({ type: "error", message: `${file.name} 超过了最大上传大小 (100MB)` }); return }
   }
   isUploading.value = true
-  uploadFileApi(fileList.value).then((res) => {
-    if (res.code == 0) { ElMessage({ type: "success", message: res.data }); fileList.value = []; loadStoreFileData() }
-    else { ElMessage({ type: "error", message: res.data.message }) }
-  }).catch((err) => ElMessage({ type: "error", message: err }))
-    .finally(() => { isUploading.value = false })
+  uploadProgress.value = 0
+  const uploadedNames = fileList.value.map(f => f.name)
+  uploadFileApi(fileList.value, (p) => { uploadProgress.value = p }).then((res) => {
+    if (res.code == 0) {
+      isUploading.value = false
+      isProcessing.value = true
+      fileList.value = []
+      uploadProgress.value = 0
+      ElMessage({ type: "success", message: "上传完成，后台处理中..." })
+      pollProcessingDone(uploadedNames)
+    } else {
+      isUploading.value = false
+      uploadProgress.value = 0
+      ElMessage({ type: "error", message: res.data.message })
+    }
+  }).catch((err) => {
+    isUploading.value = false
+    uploadProgress.value = 0
+    ElMessage({ type: "error", message: err })
+  })
+}
+
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+const pollProcessingDone = (filenames: string[]) => {
+  pollTimer = setInterval(() => {
+    queryFileApi({ page: 1, pageSize: 999, fileName: "" }).then((res) => {
+      if (res.code == 0) {
+        const records: StoreFile[] = res.data.records ?? []
+        const allDone = filenames.every(name =>
+          records.some(r => r.fileName === name)
+        )
+        if (allDone) {
+          if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+          isProcessing.value = false
+          isUploading.value = false
+          loadStoreFileData()
+          ElMessage({ type: "success", message: "文件处理完成" })
+        }
+      }
+    }).catch(() => {})
+  }, 3000)
 }
 
 const deleteStoreFile = (file: StoreFile) => {
@@ -316,6 +372,10 @@ const fileColors = ["#0891B2", "#6366F1", "#8B5CF6", "#EC4899", "#F59E0B", "#10B
 const getFileColor = (name: string) => fileColors[name.length % fileColors.length]
 
 onMounted(() => { loadStoreFileData() })
+
+onUnmounted(() => {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+})
 </script>
 
 <style scoped lang="less">
@@ -415,6 +475,11 @@ onMounted(() => { loadStoreFileData() })
     background: #ECFEFF;
     box-shadow: 0 0 0 4px rgba(8, 145, 178, 0.1);
   }
+
+  &.is-uploading {
+    cursor: not-allowed;
+    pointer-events: auto;
+  }
 }
 
 .upload-zone-content {
@@ -443,6 +508,34 @@ onMounted(() => { loadStoreFileData() })
 .upload-secondary {
   font-size: 12px;
   color: #94A3B8;
+}
+
+/* Progress bar */
+.upload-progress {
+  margin-top: 16px;
+  height: 6px;
+  background: #E2E8F0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #0891B2, #06B6D4);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+
+  &.is-processing {
+    width: 100%;
+    animation: progress-indeterminate 1.5s ease-in-out infinite;
+    background: linear-gradient(90deg, #0891B2 0%, #06B6D4 40%, #0891B2 80%);
+    background-size: 200% 100%;
+  }
+}
+
+@keyframes progress-indeterminate {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .upload-pending {
