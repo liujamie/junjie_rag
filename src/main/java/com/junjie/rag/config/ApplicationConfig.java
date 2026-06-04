@@ -33,7 +33,7 @@ public class ApplicationConfig implements WebMvcConfigurer {
      */
     @Bean
     public TokenTextSplitter tokenTextSplitter() {
-        return new TokenTextSplitter(1000, 200, 2000, 100, true);
+        return new TokenTextSplitter(750, 300, 15, 3000, true);
     }
 
     @Bean

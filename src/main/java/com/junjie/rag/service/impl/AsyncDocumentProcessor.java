@@ -45,10 +45,21 @@ public class AsyncDocumentProcessor {
                 log.error("文件名称为空");
                 return;
             }
-            String fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            String newFileName = UUID.randomUUID() + fileExtension;
-            String url = aliOssUtil.upload(fileBytes, newFileName);
-            log.info("OSS上传完成: {}", url);
+
+            // 覆盖更新：同名文件已存在时，删旧记录再重新处理
+            AliOssFile existing = aliOssFileService.lambdaQuery()
+                    .eq(AliOssFile::getFileName, originalFilename)
+                    .one();
+            if (existing != null) {
+                log.info("检测到同名文件，覆盖更新: {}", originalFilename);
+                List<String> oldVectorIds = JSON.parseArray(existing.getVectorId(), String.class);
+                if (oldVectorIds != null && !oldVectorIds.isEmpty()) {
+                    vectorStore.delete(oldVectorIds);
+                }
+                aliOssUtil.deleteOss(existing.getUrl());
+                aliOssFileService.removeById(existing.getId());
+                log.info("旧记录已清理: {}", originalFilename);
+            }
 
             ByteArrayResource resource = new ByteArrayResource(fileBytes);
             List<Document> documents;
@@ -59,14 +70,26 @@ public class AsyncDocumentProcessor {
                 log.info("开始解析文档: {}", originalFilename);
                 documents = new TikaDocumentReader(resource).read();
             }
-            log.info("文档解析完成, 共{}个文档", documents.size());
+            log.info("文档解析完成, 共{}个文档, 总字符数: {}",
+                    documents.size(),
+                    documents.stream().mapToInt(d -> d.getText().length()).sum());
 
             List<Document> splitDocuments = tokenTextSplitter.apply(documents);
             log.info("文档分块完成, 共{}个块", splitDocuments.size());
 
+            if (splitDocuments.isEmpty()) {
+                log.warn("文档分块后为空，跳过处理: {}", originalFilename);
+                return;
+            }
+
             log.info("开始向量化...");
             vectorStore.add(splitDocuments);
             log.info("向量化完成");
+
+            String fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            String newFileName = UUID.randomUUID() + fileExtension;
+            String url = aliOssUtil.upload(fileBytes, newFileName);
+            log.info("OSS上传完成: {}", url);
 
             long currtime = System.currentTimeMillis();
             aliOssFileService.save(
