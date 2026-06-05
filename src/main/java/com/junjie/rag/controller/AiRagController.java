@@ -22,6 +22,7 @@ import com.junjie.rag.annotation.Loggable;
 import com.junjie.rag.common.ApplicationConstant;
 import com.junjie.rag.context.BaseContext;
 import com.junjie.rag.entity.SensitiveWord;
+import com.junjie.rag.service.QueryRewriteService;
 import com.junjie.rag.service.RerankService;
 import com.junjie.rag.service.SensitiveWordService;
 import com.junjie.rag.tools.RagTool;
@@ -32,6 +33,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.PromptChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -79,6 +81,11 @@ public class AiRagController {
     @Autowired
     private RerankService rerankService;
 
+    @Autowired
+    private QueryRewriteService queryRewriteService;
+
+    private final ChatMemory chatMemory;
+
     public AiRagController(ChatModel chatModel, ChatMemory chatMemory, VectorStore vectorStore,
                             RagTool ragTool) {
         this.chatClient = ChatClient.builder(chatModel)
@@ -109,6 +116,7 @@ public class AiRagController {
                 .build();
 
         this.vectorStore = vectorStore;
+        this.chatMemory = chatMemory;
     }
 
     private String buildRagPrompt(String documentsText) {
@@ -174,17 +182,27 @@ public class AiRagController {
 
         aiStreamExecutor.execute(() -> {
             try {
-                // 1. 向量检索（召回更多候选）
+                // 1. 查询改写：根据对话历史补全代词和上下文
+                List<Message> historyMessages = chatMemory.get(String.valueOf(currentId));
+                String historyText = historyMessages.stream()
+                        .skip(Math.max(0, historyMessages.size() - 4))
+                        .map(m -> m.getMessageType().name() + ": " + m.getText())
+                        .collect(java.util.stream.Collectors.joining("\n"));
+                String searchQuery = queryRewriteService.rewrite(message, historyText);
+
+                log.info("检索查询: '{}'（原问题: '{}'）", searchQuery, message);
+
+                // 2. 用改写后的查询进行向量检索（召回更多候选）
                 SearchRequest searchRequest = SearchRequest.builder()
-                        .query(message)
+                        .query(searchQuery)
                         .similarityThreshold(0.5d)
                         .topK(15)
                         .build();
                 List<Document> docs = vectorStore.similaritySearch(searchRequest);
 
-                // 2. Rerank 重排序
+                // 3. 用改写后的查询进行 Rerank 重排序
                 if (docs.size() > 1) {
-                    docs = rerankService.rerank(message, docs);
+                    docs = rerankService.rerank(searchQuery, docs);
                     docs = docs.subList(0, Math.min(3, docs.size()));
                 }
 
