@@ -1,19 +1,25 @@
 <template>
   <div class="page-container">
-    <el-card class="page-card">
+    <!-- Gradient Header -->
+    <div class="page-header">
+      <div class="page-header-content">
+        <div>
+          <h1 class="page-title">AI 绘画</h1>
+          <p class="page-desc">描述你想要的图片，AI 将为你生成</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="page-body">
       <div class="draw-layout">
         <!-- Input panel -->
         <div class="input-panel">
-          <div class="panel-header">
-            <h2>AI 绘画</h2>
-            <p class="panel-desc">描述你想要的图片，AI 将为你生成</p>
-          </div>
-
           <div class="prompt-box">
             <el-input
               v-model="prompt"
               type="textarea"
-              :rows="5"
+              :rows="6"
               placeholder="描述你所想象的图片，比如：一只在星空下奔跑的银色机械狼，赛博朋克风格..."
               class="prompt-input"
             />
@@ -62,7 +68,7 @@
           </div>
         </div>
       </div>
-    </el-card>
+    </div>
   </div>
 </template>
 
@@ -103,18 +109,46 @@ const downloadImage = () => {
 
 <style scoped lang="less">
 .page-container {
-  height: calc(100vh - 32px);
-  padding: 0;
-  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #F8FAFC;
 }
 
-.page-card {
-  height: 100%;
+.page-header {
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+  padding: 24px 32px;
+  flex-shrink: 0;
+}
 
-  :deep(.el-card__body) {
-    height: 100%;
-    padding: 24px;
-  }
+.page-header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0 0 4px;
+}
+
+.page-desc {
+  font-size: 13px;
+  color: #94A3B8;
+  margin: 0;
+}
+
+.page-body {
+  flex: 1;
+  padding: 24px 32px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .draw-layout {
@@ -124,29 +158,11 @@ const downloadImage = () => {
   overflow: hidden;
 }
 
-/* Input panel */
 .input-panel {
   width: 380px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-}
-
-.panel-header {
-  margin-bottom: 20px;
-
-  h2 {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0 0 4px;
-  }
-
-  .panel-desc {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin: 0;
-  }
 }
 
 .prompt-box {
@@ -179,7 +195,6 @@ const downloadImage = () => {
   border-radius: 10px;
 }
 
-/* Preview panel */
 .preview-panel {
   flex: 1;
   min-width: 0;

@@ -1,6 +1,17 @@
 <template>
   <div class="page-container">
-    <el-card class="page-card">
+    <!-- Gradient Header -->
+    <div class="page-header">
+      <div class="page-header-content">
+        <div>
+          <h1 class="page-title">操作日志</h1>
+          <p class="page-desc">查看系统的操作记录，支持按条件检索</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="page-body">
       <!-- Search -->
       <div class="search-section">
         <el-form :inline="true" :model="searchForm" ref="searchFormRef">
@@ -24,11 +35,24 @@
         <el-button type="danger" @click="handleBatchDelete">清空日志</el-button>
       </div>
 
+      <div v-if="logList.length === 0 && !isLoading" class="empty-state">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <rect width="64" height="64" rx="16" fill="#F1F5F9"/>
+          <rect x="16" y="16" width="32" height="4" rx="2" fill="#CBD5E1"/>
+          <rect x="16" y="24" width="24" height="4" rx="2" fill="#E2E8F0"/>
+          <rect x="16" y="32" width="28" height="4" rx="2" fill="#E2E8F0"/>
+          <rect x="16" y="40" width="20" height="4" rx="2" fill="#E2E8F0"/>
+          <circle cx="48" cy="48" r="8" fill="#E2E8F0"/>
+          <path d="M46 48l2 2 4-4" stroke="#94A3B8" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <p class="empty-title">暂无日志记录</p>
+        <p class="empty-desc">系统操作日志将显示在这里</p>
+      </div>
       <el-table
+        v-else
         v-loading="isLoading"
         :data="logList"
         class="data-table"
-        border
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="50" />
@@ -51,7 +75,7 @@
           @current-change="handleCurrentChange"
         />
       </div>
-    </el-card>
+    </div>
   </div>
 </template>
 
@@ -106,33 +130,55 @@ onMounted(() => { loadLogData() })
 
 <style scoped lang="less">
 .page-container {
-  height: calc(100vh - 32px);
-  padding: 0;
-  box-sizing: border-box;
-}
-
-.page-card {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: #F8FAFC;
+}
 
-  :deep(.el-card__body) {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 24px;
-    overflow: hidden;
-  }
+.page-header {
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+  padding: 24px 32px;
+  flex-shrink: 0;
+}
+
+.page-header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0 0 4px;
+}
+
+.page-desc {
+  font-size: 13px;
+  color: #94A3B8;
+  margin: 0;
+}
+
+.page-body {
+  flex: 1;
+  padding: 20px 32px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .search-section {
   margin-bottom: 16px;
-
-  .el-form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0;
-  }
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 16px 20px;
 
   :deep(.el-form-item) {
     margin-bottom: 0;
@@ -142,10 +188,32 @@ onMounted(() => { loadLogData() })
 
 .toolbar {
   margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
 }
 
 .data-table {
-  flex: 1;
-  min-height: 0;
+  width: 100%;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 8px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+
+  .empty-title { font-size: 15px; font-weight: 600; color: #64748B; margin: 0; }
+  .empty-desc { font-size: 13px; color: #94A3B8; margin: 0; }
+}
+
+.pagination {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

@@ -35,6 +35,32 @@
 
   --sidebar-width: 230px;
   --header-height: 0px;
+
+  /* ===== Element Plus Theme Overrides ===== */
+  --el-color-primary: #0891B2;
+  --el-color-primary-light-3: #22D3EE;
+  --el-color-primary-light-5: #67E8F9;
+  --el-color-primary-light-7: #A5F3FC;
+  --el-color-primary-light-8: #CFFAFE;
+  --el-color-primary-light-9: #ECFEFF;
+  --el-color-primary-dark-2: #0E7490;
+  --el-color-success: #22C55E;
+  --el-color-warning: #F59E0B;
+  --el-color-danger: #EF4444;
+  --el-color-info: #64748B;
+
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 20px;
+
+  --el-table-border-color: #E2E8F0;
+  --el-table-header-bg-color: #F8FAFC;
+  --el-table-row-hover-bg-color: #F0FDFA;
+  --el-table-border: none;
+  --el-table-header-text-color: #475569;
+
+  --el-dialog-border-radius: 12px;
+  --el-messagebox-border-radius: 12px;
 }
 
 * {
@@ -120,9 +146,11 @@ a:hover {
   box-shadow: var(--shadow-lg) !important;
 }
 
+/* ===== Stripe-free table ===== */
 .el-table {
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   overflow: hidden;
+  border: 1px solid var(--border-color);
 }
 
 .el-table th.el-table__cell {
@@ -130,10 +158,35 @@ a:hover {
   color: var(--text-secondary);
   font-weight: 600;
   font-size: 13px;
+  border-bottom: none;
 }
 
-.el-table--border {
-  border: 1px solid var(--border-color);
+.el-table td.el-table__cell {
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.el-table tr:last-child td.el-table__cell {
+  border-bottom: none;
+}
+
+.el-table__row:hover td.el-table__cell {
+  background-color: #F0FDFA !important;
+}
+
+.el-table__row:active td.el-table__cell {
+  background-color: #ECFEFF !important;
+}
+
+.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background-color: #FAFBFC;
+}
+
+.el-table--striped .el-table__body tr.el-table__row--striped:hover td.el-table__cell {
+  background-color: #F0FDFA !important;
+}
+
+.el-table__body tr.el-table__row--striped td.el-table__cell {
+  background-color: #FAFBFC;
 }
 
 .el-button--primary {
@@ -199,8 +252,16 @@ a:hover {
 }
 
 .el-tag {
-  border-radius: 4px;
+  border-radius: 6px;
   font-weight: 500;
+  padding: 0 8px;
+  height: 24px;
+  line-height: 24px;
+}
+
+.el-tag.el-tag--round {
+  border-radius: 12px;
+  padding: 0 10px;
 }
 
 .el-pagination {
