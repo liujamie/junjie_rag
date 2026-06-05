@@ -45,7 +45,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { frequencyPageApi, getList, cleanApi } from '@/api/FrequencyApi'
+import { listFrequencyApi, cleanFrequencyApi } from '@/api/FrequencyApi'
 import { WordFreq } from "@/api/data.ts"
 import * as echarts from 'echarts'
 import 'echarts-wordcloud'
@@ -62,7 +62,7 @@ let pieChart: echarts.ECharts | null = null
 const loadWordFrequencyData = async () => {
   isLoading.value = true
   try {
-    const res = await getList()
+    const res = await listFrequencyApi()
     if (res.code === 0) {
       const list: WordFreq[] = res.data ?? []
       updateCharts(list)
@@ -77,7 +77,7 @@ const loadWordFrequencyData = async () => {
 const handleClean = () => {
   ElMessageBox.confirm('确定要清空所有词频数据吗？', '确认', { type: 'warning' })
     .then(async () => {
-      const res = await cleanApi()
+      const res = await cleanFrequencyApi()
       if (res.code === 0) { ElMessage.success('已清空'); loadWordFrequencyData() }
     }).catch(() => {})
 }

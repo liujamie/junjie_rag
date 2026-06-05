@@ -181,38 +181,59 @@ public class AiRagController {
         StringBuilder fullContent = new StringBuilder();
 
         aiStreamExecutor.execute(() -> {
+            long tRequestStart = System.currentTimeMillis();
             try {
-                // 1. 查询改写：根据对话历史补全代词和上下文
+                // === 1. 查询改写 ===
+                long t0 = System.currentTimeMillis();
                 List<Message> historyMessages = chatMemory.get(String.valueOf(currentId));
-                String historyText = historyMessages.stream()
-                        .skip(Math.max(0, historyMessages.size() - 4))
-                        .map(m -> m.getMessageType().name() + ": " + m.getText())
-                        .collect(java.util.stream.Collectors.joining("\n"));
+                java.util.List<String> userQuestions = historyMessages.stream()
+                        .filter(m -> m.getMessageType().name().equals("USER"))
+                        .map(org.springframework.ai.chat.messages.Message::getText)
+                        .collect(java.util.stream.Collectors.toList());
+                String historyText = userQuestions.stream()
+                        .skip(Math.max(0, userQuestions.size() - 3))
+                        .collect(java.util.stream.Collectors.joining(" | "));
                 String searchQuery = queryRewriteService.rewrite(message, historyText);
+                long t1 = System.currentTimeMillis();
+                log.info("[RAG耗时] 查询改写: {}ms | 检索查询: '{}'", t1 - t0, searchQuery);
 
-                log.info("检索查询: '{}'（原问题: '{}'）", searchQuery, message);
+                if (searchQuery == null || searchQuery.isBlank()) {
+                    String hint = "您的问题有点模糊，能否补充一些关键信息？例如：\n• 您想了解哪个知识点？\n• 需要查询哪方面的内容？\n• 有什么具体的问题需要解答？\n\n您可以这样提问：\n\"什么是RAG？\"\n\"Java有哪些设计模式？\"\n\"帮我总结一下知识库中关于性能优化的内容\"";
+                    emitter.send(hint);
+                    emitter.complete();
+                    log.info("[RAG耗时分析] 用户提问不明确，已提示补充信息");
+                    return;
+                }
 
-                // 2. 用改写后的查询进行向量检索（召回更多候选）
+                // === 2. 向量检索 ===
                 SearchRequest searchRequest = SearchRequest.builder()
                         .query(searchQuery)
                         .similarityThreshold(0.5d)
                         .topK(15)
                         .build();
                 List<Document> docs = vectorStore.similaritySearch(searchRequest);
+                long t2 = System.currentTimeMillis();
+                int preRerankCount = docs.size();
+                log.info("[RAG耗时] 向量检索: {}ms | 召回: {}条", t2 - t1, preRerankCount);
 
-                // 3. 用改写后的查询进行 Rerank 重排序
+                // === 3. Rerank 重排序 ===
                 if (docs.size() > 1) {
                     docs = rerankService.rerank(searchQuery, docs);
                     docs = docs.subList(0, Math.min(3, docs.size()));
                 }
+                long t3 = System.currentTimeMillis();
+                log.info("[RAG耗时] Rerank重排序: {}ms | 保留: {}条", t3 - t2, docs.size());
 
+                // === 4. 构建提示词 ===
                 String documentsText = docs.stream()
                         .map(Document::getText)
                         .collect(Collectors.joining("\n\n---\n\n"));
-
-                // 3. 构建系统提示词（含重排序后的知识库内容）
                 String systemPrompt = buildRagPrompt(documentsText);
+                long t4 = System.currentTimeMillis();
+                log.info("[RAG耗时] 构建提示词: {}ms", t4 - t3);
 
+                // === 5. LLM 流式响应 ===
+                long tLlmStart = System.currentTimeMillis();
                 chatClient.prompt()
                         .user(message)
                         .system(systemPrompt)
@@ -230,11 +251,40 @@ public class AiRagController {
                                 },
                                 emitter::completeWithError,
                                 () -> {
+                                    long tEnd = System.currentTimeMillis();
                                     ragResultCache.put(message, fullContent.toString());
                                     emitter.complete();
+                                    // === 耗时分析报告 ===
+                                    long rewriteMs = t1 - t0;
+                                    long searchMs = t2 - t1;
+                                    long rerankMs = t3 - t2;
+                                    long llmMs = tEnd - tLlmStart;
+                                    long totalMs = tEnd - tRequestStart;
+                                    log.info("==============================================");
+                                    log.info("[RAG耗时分析] 总耗时: {}ms", totalMs);
+                                    log.info("[RAG耗时分析]   ├── 查询改写: {}ms ({}%)", rewriteMs, rewriteMs * 100 / totalMs);
+                                    log.info("[RAG耗时分析]   ├── 向量检索: {}ms ({}%)", searchMs, searchMs * 100 / totalMs);
+                                    log.info("[RAG耗时分析]   ├── Rerank:    {}ms ({}%)", rerankMs, rerankMs * 100 / totalMs);
+                                    log.info("[RAG耗时分析]   └── LLM输出:  {}ms ({}%)", llmMs, llmMs * 100 / totalMs);
+                                    log.info("[RAG耗时分析] 响应长度: {} 字符", fullContent.length());
+                                    // 分析瓶颈
+                                    long[] stages = {rewriteMs, searchMs, rerankMs, llmMs};
+                                    String[] names = {"查询改写", "向量检索", "Rerank", "LLM输出"};
+                                    int maxIdx = 0;
+                                    for (int i = 1; i < stages.length; i++) if (stages[i] > stages[maxIdx]) maxIdx = i;
+                                    double pct = stages[maxIdx] * 100.0 / totalMs;
+                                    String pctStr = String.format("%.1f", pct);
+                                    log.info("[RAG耗时分析] ⚠ 耗时最长阶段: {} ({}ms, {}%)", names[maxIdx], stages[maxIdx], pctStr);
+                                    if (maxIdx == 0) log.info("[RAG优化建议] 查询改写慢 → 考虑减少历史轮数(当前取4条)或改用更快的模型");
+                                    if (maxIdx == 1) log.info("[RAG优化建议] 向量检索慢 → 检查Milvus索引类型(当前IVF_FLAT)，考虑换HNSW或减小topK(当前15)");
+                                    if (maxIdx == 2) log.info("[RAG优化建议] Rerank慢 → 减少rerank候选数(当前{}条)或检查DashScope API响应时间", preRerankCount);
+                                    if (maxIdx == 3) log.info("[RAG优化建议] LLM输出慢 → 检查模型(当前deepseek-v4-flash)响应速度或减小max_tokens");
+                                    log.info("==============================================");
                                 }
                         );
             } catch (Exception e) {
+                long tFail = System.currentTimeMillis();
+                log.error("[RAG耗时分析] 请求在 {}ms 后失败", tFail - tRequestStart, e);
                 emitter.completeWithError(e);
             }
         });

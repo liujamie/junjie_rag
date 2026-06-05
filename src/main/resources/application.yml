@@ -22,6 +22,7 @@ spring:
       chat:
         options:
           model: deepseek-v4-flash
+#          model: deepseek-v4-pro
     ollama:
       base-url: http://localhost:11434
       embedding:

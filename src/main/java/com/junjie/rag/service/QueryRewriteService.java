@@ -1,24 +1,27 @@
 package com.junjie.rag.service;
 
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 @Slf4j
 @Service
 public class QueryRewriteService {
 
-    private final ChatClient rewriteClient;
+    private final RestTemplate restTemplate = new RestTemplate();
+    private final String apiKey;
 
-    public QueryRewriteService(ChatModel chatModel) {
-        this.rewriteClient = ChatClient.builder(chatModel)
-                .defaultSystem("""
-                        你是一个查询改写助手。用户正在进行多轮对话，当前问题可能依赖对话历史。
-                        请把当前问题改写成一个独立的、完整的检索查询，补全代词和上下文，不依赖对话历史也能搜到相关内容。
-                        只返回改写后的查询文本，不要解释，不要加引号。
-                        """)
-                .build();
+    private static final String API_URL = "https://api.deepseek.com/chat/completions";
+
+    public QueryRewriteService(@Value("${spring.ai.openai.api-key}") String apiKey) {
+        this.apiKey = apiKey;
     }
 
     /**
@@ -34,26 +37,41 @@ public class QueryRewriteService {
         }
 
         try {
-            String rewritten = rewriteClient.prompt()
-                    .user(u -> u.text("""
-                            历史对话：
-                            {history}
+            long start = System.currentTimeMillis();
 
-                            当前问题：
-                            {question}
+            JSONObject body = new JSONObject();
+            body.put("model", "deepseek-v4-flash");
+            body.put("max_tokens", 80);
+            body.put("temperature", 0);
+            body.put("stream", false);
 
-                            改写结果：""")
-                            .param("history", history)
-                            .param("question", question))
-                    .call()
-                    .content();
+            JSONArray messages = new JSONArray();
+            JSONObject userMsg = new JSONObject();
+            userMsg.put("content", "改写为搜索查询。\n历史问题：" + history + "\n当前问题：" + question + "\n改写结果：");
+            userMsg.put("role", "user");
+            messages.add(userMsg);
+            body.put("messages", messages);
 
-            String result = rewritten != null ? rewritten.trim() : question;
-            log.info("查询改写: '{}' → '{}'", question, result);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + apiKey);
+
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    API_URL, new HttpEntity<>(body.toJSONString(), headers), String.class);
+
+            JSONObject resultBody = JSONObject.parseObject(response.getBody());
+            String rewritten = resultBody.getJSONArray("choices")
+                    .getJSONObject(0)
+                    .getJSONObject("message")
+                    .getString("content");
+
+            long cost = System.currentTimeMillis() - start;
+            String result = (rewritten != null && !rewritten.isBlank()) ? rewritten.trim() : question;
+            log.info("查询改写: '{}' → '{}' ({}ms)", question, result, cost);
             return result;
 
         } catch (Exception e) {
-            log.warn("查询改写失败，使用原问题: {}", e.getMessage());
+            log.warn("查询改写失败，使用原问题: {}ms", e.getMessage());
             return question;
         }
     }
