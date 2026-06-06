@@ -3,6 +3,7 @@ package com.junjie.rag.tools;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.junjie.rag.annotation.TrackLlmCall;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -36,6 +37,7 @@ public class RagTool {
         return LocalDate.now().toString();
     }
 
+    @TrackLlmCall(service = "searchWeb", model = "searxng")
     @Tool(description = "搜索网络获取实时信息，当需要最新新闻、实时数据、知识库未覆盖的内容时使用")
     public String searchWeb(@ToolParam(description = "搜索关键词", required = true) String query) {
         log.info("searchWeb 被调用, query: {}", query);
@@ -75,10 +77,5 @@ public class RagTool {
             log.error("searchWeb 异常", e);
             return "网络搜索暂时不可用: " + e.getMessage();
         }
-    }
-
-    @Tool(description = "当用户的查询包含特定人名刘梦杰时使用此工具来获取相关资料")
-    public String addInfo(@ToolParam(description = "用户的完整提问内容", required = true) String question) {
-        return "刘梦杰，年龄28岁，曾任职于阿里巴巴、字节跳动等互联网公司，担任高级后端工程师，精通 Java 和分布式系统。";
     }
 }

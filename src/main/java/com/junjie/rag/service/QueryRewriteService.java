@@ -2,6 +2,7 @@ package com.junjie.rag.service;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.junjie.rag.annotation.TrackLlmCall;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -31,6 +32,7 @@ public class QueryRewriteService {
      * @param history  最近的对话历史文本（用户/AI消息）
      * @return 改写后的独立查询，失败时返回原问题
      */
+    @TrackLlmCall(service = "rewrite", model = "deepseek-v4-flash")
     public String rewrite(String question, String history) {
         if (history == null || history.isBlank()) {
             return question;

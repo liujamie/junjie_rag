@@ -4,7 +4,9 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.junjie.rag.annotation.Loggable;
 import com.junjie.rag.common.ApplicationConstant;
 import com.junjie.rag.context.BaseContext;
+import com.junjie.rag.entity.LlmCallRecord;
 import com.junjie.rag.entity.SensitiveWord;
+import com.junjie.rag.service.LlmCallRecordService;
 import com.junjie.rag.service.SensitiveWordService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -53,6 +55,9 @@ public class ChatController {
     @Qualifier("sensitiveWordCache")
     private Cache<String, List<SensitiveWord>> sensitiveWordCache;
 
+    @Autowired
+    private LlmCallRecordService llmCallRecordService;
+
     public ChatController(ChatClient.Builder builder,ChatMemory chatMemory) {
 
         this.chatClient = builder
@@ -87,6 +92,8 @@ public class ChatController {
 
         SseEmitter emitter = new SseEmitter(300000L);
         Long userId = BaseContext.getCurrentId();
+        long tStart = System.currentTimeMillis();
+        StringBuilder fullContent = new StringBuilder();
 
         aiStreamExecutor.execute(() -> {
             try {
@@ -99,16 +106,50 @@ public class ChatController {
                         .subscribe(
                                 chunk -> {
                                     try {
+                                        fullContent.append(chunk);
                                         emitter.send(chunk);
                                     } catch (IOException e) {
                                         throw new RuntimeException(e);
                                     }
                                 },
                                 emitter::completeWithError,
-                                emitter::complete
+                                () -> {
+                                    emitter.complete();
+                                    // 记录 LLM 调用
+                                    long duration = System.currentTimeMillis() - tStart;
+                                    try {
+                                        LlmCallRecord record = new LlmCallRecord();
+                                        record.setTraceId(org.slf4j.MDC.get("traceId"));
+                                        record.setUserId(userId);
+                                        record.setServiceName("chat");
+                                        record.setModelName("deepseek-v4-flash");
+                                        record.setInputTokens(message.length() / 2);
+                                        record.setOutputTokens(fullContent.length() / 2);
+                                        record.setDurationMs(duration);
+                                        record.setStatus("success");
+                                        record.setRequestPreview(message.length() > 200 ? message.substring(0, 200) : message);
+                                        record.setResponsePreview(fullContent.length() > 200 ? fullContent.substring(0, 200) : fullContent.toString());
+                                        record.setCreateTime(new java.util.Date());
+                                        llmCallRecordService.save(record);
+                                    } catch (Exception ignored) {}
+                                }
                         );
             } catch (Exception e) {
                 emitter.completeWithError(e);
+                // 记录失败的调用
+                try {
+                    LlmCallRecord record = new LlmCallRecord();
+                    record.setTraceId(org.slf4j.MDC.get("traceId"));
+                    record.setUserId(userId);
+                    record.setServiceName("chat");
+                    record.setModelName("deepseek-v4-flash");
+                    record.setDurationMs(System.currentTimeMillis() - tStart);
+                    record.setStatus("fail");
+                    record.setRequestPreview(message.length() > 200 ? message.substring(0, 200) : message);
+                    record.setResponsePreview(e.getClass().getSimpleName() + ": " + e.getMessage());
+                    record.setCreateTime(new java.util.Date());
+                    llmCallRecordService.save(record);
+                } catch (Exception ignored) {}
             }
         });
 

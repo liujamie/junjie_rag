@@ -58,15 +58,33 @@ CREATE TABLE `ali_oss_file` (
 -- ----------------------------
 -- Table structure for log_info
 -- ----------------------------
+-- 如果已存在旧表（升级），执行以下迁移语句:
+-- ALTER TABLE log_info ADD COLUMN trace_id VARCHAR(32) COMMENT '链路追踪ID' AFTER id;
+-- ALTER TABLE log_info ADD COLUMN user_id BIGINT COMMENT '操作用户ID' AFTER trace_id;
+-- ALTER TABLE log_info MODIFY COLUMN request_time DATETIME(3) COMMENT '请求时间戳';
+-- ALTER TABLE log_info ADD COLUMN duration BIGINT COMMENT '执行耗时(毫秒)' AFTER response;
+-- ALTER TABLE log_info ADD COLUMN status VARCHAR(16) DEFAULT 'success' COMMENT '状态: success/fail' AFTER duration;
+-- ALTER TABLE log_info ADD COLUMN error_message TEXT COMMENT '异常信息' AFTER status;
+-- ALTER TABLE log_info ADD INDEX idx_trace_id (trace_id);
+-- ALTER TABLE log_info ADD INDEX idx_user_id (user_id);
+-- ALTER TABLE log_info ADD INDEX idx_request_time (request_time);
 DROP TABLE IF EXISTS `log_info`;
 CREATE TABLE `log_info` (
                             `id` BIGINT NOT NULL AUTO_INCREMENT,
+                            `trace_id` VARCHAR(32) COMMENT '链路追踪ID',
+                            `user_id` BIGINT COMMENT '操作用户ID',
                             `method_name` VARCHAR(255) COMMENT '方法名',
                             `class_name` VARCHAR(255) COMMENT '类目',
-                            `request_time` DATE COMMENT '请求时间戳',
+                            `request_time` DATETIME(3) COMMENT '请求时间戳',
                             `request_params` TEXT COMMENT '请求参数',
                             `response` TEXT COMMENT '响应结果',
-                            PRIMARY KEY (`id`)
+                            `duration` BIGINT COMMENT '执行耗时(毫秒)',
+                            `status` VARCHAR(16) DEFAULT 'success' COMMENT '状态: success/fail',
+                            `error_message` TEXT COMMENT '异常信息',
+                            PRIMARY KEY (`id`),
+                            INDEX idx_trace_id (`trace_id`),
+                            INDEX idx_user_id (`user_id`),
+                            INDEX idx_request_time (`request_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='日志信息表';
 
 
@@ -112,6 +130,30 @@ CREATE TABLE `sensitive_category` (
                                       `status` VARCHAR(50) COMMENT '状态',
                                       PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='敏感词分类表';
+
+-- ----------------------------
+-- Table structure for llm_call_record
+-- ----------------------------
+DROP TABLE IF EXISTS `llm_call_record`;
+CREATE TABLE `llm_call_record` (
+                                   `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                   `trace_id` VARCHAR(32) COMMENT '链路追踪ID',
+                                   `user_id` BIGINT COMMENT '操作用户ID',
+                                   `service_name` VARCHAR(32) COMMENT '服务名: rewrite/rerank/searchWeb/chat/rag',
+                                   `model_name` VARCHAR(64) COMMENT '模型名',
+                                   `input_tokens` INT DEFAULT 0 COMMENT '输入token数(估算)',
+                                   `output_tokens` INT DEFAULT 0 COMMENT '输出token数(估算)',
+                                   `duration_ms` BIGINT COMMENT '耗时(毫秒)',
+                                   `status` VARCHAR(16) DEFAULT 'success' COMMENT '状态: success/fail',
+                                   `request_preview` VARCHAR(500) COMMENT '请求摘要',
+                                   `response_preview` VARCHAR(500) COMMENT '响应摘要',
+                                   `create_time` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+                                   PRIMARY KEY (`id`),
+                                   INDEX idx_llm_trace_id (`trace_id`),
+                                   INDEX idx_llm_user_id (`user_id`),
+                                   INDEX idx_llm_service (`service_name`),
+                                   INDEX idx_llm_create_time (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LLM调用记录表';
 
 -- 会话历史存储表
 -- 在 MySQL 中执行

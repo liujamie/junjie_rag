@@ -1,0 +1,33 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: junjie-rag-app
+    static_configs:
+      - targets: []
+        labels:
+          job: junjie-rag
+          __path__: /app/logs/app.json
+    pipeline_stages:
+      - json:
+          expressions:
+            traceId: traceId
+            userId: userId
+            level: level
+            logger: logger_name
+            app: app
+            env: env
+      - labels:
+          traceId:
+          userId:
+          level:
+          logger:
+          app:
+          env:

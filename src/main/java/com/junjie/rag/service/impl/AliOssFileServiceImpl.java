@@ -9,6 +9,7 @@ import com.github.pagehelper.PageInfo;
 import com.junjie.rag.common.BaseResponse;
 import com.junjie.rag.common.ErrorCode;
 import com.junjie.rag.common.ResultUtils;
+import lombok.extern.slf4j.Slf4j;
 import com.junjie.rag.entity.AliOssFile;
 import com.junjie.rag.mapper.AliOssFileMapper;
 import com.junjie.rag.pojo.dto.QueryFileDTO;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 * @description 针对表【ali_oss_file】的数据库操作Service实现
 * @createDate 2025-02-08 20:51:33
 */
+@Slf4j
 @Service
 public class AliOssFileServiceImpl extends ServiceImpl<AliOssFileMapper, AliOssFile>
     implements AliOssFileService{
@@ -70,8 +72,14 @@ public class AliOssFileServiceImpl extends ServiceImpl<AliOssFileMapper, AliOssF
             return ResultUtils.error(ErrorCode.OPERATION_ERROR, "删除失败");
         }
         for (AliOssFile aliOssFile : aliOssFiles) {
-            List<String> vectorIds = JSON.parseArray(aliOssFile.getVectorId(), String.class);
-            vectorStore.delete(vectorIds);
+            try {
+                List<String> vectorIds = JSON.parseArray(aliOssFile.getVectorId(), String.class);
+                if (vectorIds != null && !vectorIds.isEmpty()) {
+                    vectorStore.delete(vectorIds);
+                }
+            } catch (Exception e) {
+                log.warn("向量删除失败（可能已不存在）, fileId={}: {}", aliOssFile.getId(), e.getMessage());
+            }
             aliOssUtil.deleteOss(aliOssFile.getUrl());
         }
 

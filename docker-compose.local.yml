@@ -1,23 +1,4 @@
 services:
-  backend:
-    build: .
-    container_name: junjie-rag-backend
-    ports:
-      - "8989:8989"
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY}
-      alioss.access-key-id: ${ALIOSS_ACCESS_KEY_ID}
-      alioss.access-key-secret: ${ALIOSS_ACCESS_KEY_SECRET}
-    depends_on:
-      mysql:
-        condition: service_started
-      redis:
-        condition: service_started
-      milvus:
-        condition: service_started
-    volumes:
-      - ./logs:/app/logs
   mysql:
     image: mysql:8.0
     container_name: mysql

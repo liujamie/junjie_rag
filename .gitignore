@@ -32,3 +32,14 @@ idea/
 
 *.gz
 *.example
+
+# Observability config (tracked in git) — data/ subdirs below are ignored
+data/prometheus/data/
+data/loki/data/
+data/promtail/data/
+data/grafana/data/
+data/milvus/
+data/etcd/
+data/minio/
+data/mysql/
+logs/

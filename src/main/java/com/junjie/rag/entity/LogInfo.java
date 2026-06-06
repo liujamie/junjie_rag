@@ -20,6 +20,16 @@ public class LogInfo {
     private Long id;
 
     /**
+     * 链路追踪ID
+     */
+    private String traceId;
+
+    /**
+     * 操作用户ID
+     */
+    private Long userId;
+
+    /**
      * 方法名
      */
     private String methodName;
@@ -43,4 +53,19 @@ public class LogInfo {
      * 响应结果
      */
     private String response;
+
+    /**
+     * 执行耗时(毫秒)
+     */
+    private Long duration;
+
+    /**
+     * 状态: success / fail
+     */
+    private String status;
+
+    /**
+     * 异常信息
+     */
+    private String errorMessage;
 }

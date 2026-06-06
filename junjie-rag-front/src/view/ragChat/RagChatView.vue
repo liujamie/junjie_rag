@@ -308,15 +308,20 @@ const sendMessage = async (apiMethod: (message: string) => Promise<Response>) =>
       const { value, done } = await reader.read()
       if (done) break
       const text = decoder.decode(value)
-      const lines = text.split('\n')
-      for (const line of lines) {
-        if (line.startsWith('data:')) {
-          replyContent += line.slice(5)
-        } else if (line.trim() !== '') {
-          replyContent += line
+      // SSE: 多个事件以 \n\n 分隔，一个事件内多行 data: 表示原始内容含 \n
+      const rawEvents = text.split('\n\n')
+      for (const rawEvent of rawEvents) {
+        if (rawEvent.trim() === '' || rawEvent.startsWith(':')) continue
+        const dataParts: string[] = []
+        for (const line of rawEvent.split('\n')) {
+          if (line.startsWith('data:')) {
+            dataParts.push(line.slice(5))
+          }
         }
+        // 同一事件内多段 data: 用 \n 拼接（保留原始换行）
+        replyContent += dataParts.join('\n')
       }
-      // 通过响应式数组更新视图
+      // 流式更新视图
       messages.value[assistantIdx].content = replyContent
       await nextTick()
       scrollToBottom()
@@ -371,7 +376,7 @@ const copyMessage = async (content: string) => {
 const renderMarkdown = (content: string) => {
   if (!content) return ''
   try {
-    return marked(content, { breaks: true, gfm: true })
+    return marked(content, { breaks: false, gfm: true })
   } catch {
     return content
   }
@@ -582,7 +587,7 @@ onMounted(() => {
   white-space: pre-wrap;
   word-break: break-word;
 
-  :deep(p) { margin: 0 0 8px; &:last-child { margin-bottom: 0; } }
+  :deep(p) { margin: 0 0 4px; &:last-child { margin-bottom: 0; } }
   :deep(pre) {
     background: #1E293B;
     color: #E2E8F0;
@@ -602,6 +607,19 @@ onMounted(() => {
   }
   :deep(pre code) { background: transparent; padding: 0; }
   :deep(ul), :deep(ol) { padding-left: 20px; margin: 8px 0; }
+  :deep(table) {
+    border-collapse: collapse;
+    margin: 8px 0;
+    width: 100%;
+    font-size: 13px;
+    th, td {
+      border: 1px solid #CBD5E1;
+      padding: 6px 10px;
+      text-align: left;
+    }
+    th { background: #F1F5F9; font-weight: 600; }
+    tr:nth-child(even) td { background: #F8FAFC; }
+  }
   :deep(blockquote) {
     margin: 8px 0;
     padding-left: 12px;

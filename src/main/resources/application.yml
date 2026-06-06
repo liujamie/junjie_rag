@@ -41,7 +41,7 @@ spring:
         embeddingDimension: 1024 # BGE-M3 维度
         indexType: IVF_FLAT # default: IVF_FLAT
         metricType: COSINE # default: COSINE
-        initializeSchema: true # 自动创建集合
+        initializeSchema: true # 自动创建集合（MilvusSchemaConfig 兜底）
 
   autoconfigure:
     exclude:
@@ -103,9 +103,24 @@ dashscope:
   api-key: ${DASHSCOPE_API_KEY}
 
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: junjie-rag
+    export:
+      prometheus:
+        enabled: true
+  endpoint:
+    prometheus:
+      enabled: true
+    health:
+      show-details: always
+
 logging:
-  file:
-    name: logs/app.log
   level:
     org:
       springframework:
@@ -116,6 +131,7 @@ logging:
     com:
       junjie:
         rag: debug
+        rag.mapper: info   # 关闭 MyBatis SQL 的 DEBUG 日志，避免文件列表轮询刷屏
 
 
 

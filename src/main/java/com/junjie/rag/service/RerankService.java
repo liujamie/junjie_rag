@@ -3,6 +3,7 @@ package com.junjie.rag.service;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.junjie.rag.annotation.TrackLlmCall;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +36,7 @@ public class RerankService {
      * @param documents 待重排序的文档列表
      * @return 按相关性分数降序排列的文档列表
      */
+    @TrackLlmCall(service = "rerank", model = "qwen3-rerank")
     public List<Document> rerank(String query, List<Document> documents) {
         if (documents == null || documents.size() <= 1) {
             return documents;

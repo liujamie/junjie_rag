@@ -21,8 +21,12 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.junjie.rag.annotation.Loggable;
 import com.junjie.rag.common.ApplicationConstant;
 import com.junjie.rag.context.BaseContext;
+import com.junjie.rag.entity.LlmCallRecord;
 import com.junjie.rag.entity.SensitiveWord;
+import com.junjie.rag.service.LlmCallRecordService;
 import com.junjie.rag.service.QueryRewriteService;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import com.junjie.rag.service.RerankService;
 import com.junjie.rag.service.SensitiveWordService;
 import com.junjie.rag.tools.RagTool;
@@ -83,6 +87,12 @@ public class AiRagController {
 
     @Autowired
     private QueryRewriteService queryRewriteService;
+
+    @Autowired
+    private LlmCallRecordService llmCallRecordService;
+
+    @Autowired
+    private MeterRegistry meterRegistry;
 
     private final ChatMemory chatMemory;
 
@@ -172,6 +182,9 @@ public class AiRagController {
                     return;
                 }
                 cachedEmitter.complete();
+                    try {
+                        meterRegistry.counter("rag.request.total", "status", "cache").increment();
+                    } catch (Exception ignored) {}
             });
             return cachedEmitter;
         }
@@ -280,12 +293,55 @@ public class AiRagController {
                                     if (maxIdx == 2) log.info("[RAG优化建议] Rerank慢 → 减少rerank候选数(当前{}条)或检查DashScope API响应时间", preRerankCount);
                                     if (maxIdx == 3) log.info("[RAG优化建议] LLM输出慢 → 检查模型(当前deepseek-v4-flash)响应速度或减小max_tokens");
                                     log.info("==============================================");
+
+                                    // 记录 Micrometer 指标
+                                    try {
+                                        Timer.builder("rag.stage.duration").tags("stage", "rewrite").register(meterRegistry).record(java.time.Duration.ofMillis(rewriteMs));
+                                        Timer.builder("rag.stage.duration").tags("stage", "search").register(meterRegistry).record(java.time.Duration.ofMillis(searchMs));
+                                        Timer.builder("rag.stage.duration").tags("stage", "rerank").register(meterRegistry).record(java.time.Duration.ofMillis(rerankMs));
+                                        Timer.builder("rag.stage.duration").tags("stage", "llm").register(meterRegistry).record(java.time.Duration.ofMillis(llmMs));
+                                        meterRegistry.counter("rag.request.total", "status", "success").increment();
+                                        meterRegistry.counter("llm.token.total", "service", "rag", "type", "input").increment(message.length() / 2);
+                                        meterRegistry.counter("llm.token.total", "service", "rag", "type", "output").increment(fullContent.length() / 2);
+                                    } catch (Exception ignored) {}
+
+                                    // 记录 LLM 调用记录
+                                    try {
+                                        LlmCallRecord llmRecord = new LlmCallRecord();
+                                        llmRecord.setTraceId(org.slf4j.MDC.get("traceId"));
+                                        llmRecord.setUserId(currentId);
+                                        llmRecord.setServiceName("rag");
+                                        llmRecord.setModelName("deepseek-v4-flash");
+                                        llmRecord.setInputTokens(message.length() / 2);
+                                        llmRecord.setOutputTokens(fullContent.length() / 2);
+                                        llmRecord.setDurationMs(totalMs);
+                                        llmRecord.setStatus("success");
+                                        llmRecord.setRequestPreview(message.length() > 200 ? message.substring(0, 200) : message);
+                                        llmRecord.setResponsePreview(fullContent.length() > 200 ? fullContent.substring(0, 200) : fullContent.toString());
+                                        llmRecord.setCreateTime(new java.util.Date());
+                                        llmCallRecordService.save(llmRecord);
+                                    } catch (Exception ignored) {}
                                 }
                         );
             } catch (Exception e) {
                 long tFail = System.currentTimeMillis();
                 log.error("[RAG耗时分析] 请求在 {}ms 后失败", tFail - tRequestStart, e);
                 emitter.completeWithError(e);
+                // 记录失败的 LLM 调用
+                try {
+                    meterRegistry.counter("rag.request.total", "status", "fail").increment();
+                    LlmCallRecord llmRecord = new LlmCallRecord();
+                    llmRecord.setTraceId(org.slf4j.MDC.get("traceId"));
+                    llmRecord.setUserId(currentId);
+                    llmRecord.setServiceName("rag");
+                    llmRecord.setModelName("deepseek-v4-flash");
+                    llmRecord.setDurationMs(tFail - tRequestStart);
+                    llmRecord.setStatus("fail");
+                    llmRecord.setRequestPreview(message.length() > 200 ? message.substring(0, 200) : message);
+                    llmRecord.setResponsePreview(e.getClass().getSimpleName() + ": " + e.getMessage());
+                    llmRecord.setCreateTime(new java.util.Date());
+                    llmCallRecordService.save(llmRecord);
+                } catch (Exception ignored) {}
             }
         });
 
