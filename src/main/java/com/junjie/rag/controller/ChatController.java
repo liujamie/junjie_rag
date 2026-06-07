@@ -1,13 +1,11 @@
 package com.junjie.rag.controller;
 
-import com.github.benmanes.caffeine.cache.Cache;
 import com.junjie.rag.annotation.Loggable;
+import com.junjie.rag.common.SensitiveWordHolder;
 import com.junjie.rag.common.ApplicationConstant;
 import com.junjie.rag.context.BaseContext;
 import com.junjie.rag.entity.LlmCallRecord;
-import com.junjie.rag.entity.SensitiveWord;
 import com.junjie.rag.service.LlmCallRecordService;
-import com.junjie.rag.service.SensitiveWordService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
@@ -45,18 +43,14 @@ public class ChatController {
     private  ChatClient chatClient;
 
     @Autowired
-    private SensitiveWordService sensitiveWordService;
-
-    @Autowired
     @Qualifier("aiStreamExecutor")
     private ExecutorService aiStreamExecutor;
 
     @Autowired
-    @Qualifier("sensitiveWordCache")
-    private Cache<String, List<SensitiveWord>> sensitiveWordCache;
+    private LlmCallRecordService llmCallRecordService;
 
     @Autowired
-    private LlmCallRecordService llmCallRecordService;
+    private SensitiveWordHolder sensitiveWordHolder;
 
     public ChatController(ChatClient.Builder builder,ChatMemory chatMemory) {
 
@@ -76,18 +70,13 @@ public class ChatController {
     @Loggable("message")
     public SseEmitter streamRagChat(@RequestParam(value = "message", defaultValue = "你好" ) String message,
                                       @RequestParam(value = "prompt", defaultValue = "你是一名AI助手，致力于帮助人们解决问题.") String prompt){
-        List<SensitiveWord> list = sensitiveWordCache.get("all", k -> sensitiveWordService.list());
-
-        for (SensitiveWord sensitiveWord : list) {
-            if (message.contains(sensitiveWord.getWord())) {
-                SseEmitter emitter = new SseEmitter();
-                try {
-                    emitter.send("包含敏感词:" + sensitiveWord.getWord());
-                } catch (IOException ignored) {
-                }
-                emitter.complete();
-                return emitter;
-            }
+        // AC 自动机敏感词过滤（O(消息长度)）
+        List<String> matched = sensitiveWordHolder.get().matches(message);
+        if (!matched.isEmpty()) {
+            SseEmitter emitter = new SseEmitter();
+            try { emitter.send("包含敏感词:" + String.join(",", matched)); } catch (IOException ignored) {}
+            emitter.complete();
+            return emitter;
         }
 
         SseEmitter emitter = new SseEmitter(300000L);

@@ -3,9 +3,11 @@ package com.junjie.rag.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.github.benmanes.caffeine.cache.Cache;
+import com.junjie.rag.common.AcAutomaton;
 import com.junjie.rag.common.ApplicationConstant;
 import com.junjie.rag.common.BaseResponse;
 import com.junjie.rag.common.ResultUtils;
+import com.junjie.rag.config.SensitiveWordConfig;
 import com.junjie.rag.entity.SensitiveWord;
 import com.junjie.rag.service.SensitiveWordService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,6 +42,15 @@ public class SensitiveWordController {
     @Qualifier("sensitiveWordCache")
     private Cache<String, List<SensitiveWord>> sensitiveWordCache;
 
+    @Autowired
+    private SensitiveWordConfig sensitiveWordConfig;
+
+    /** 敏感词变更后刷新缓存+重建AC自动机 */
+    private void afterChange() {
+        sensitiveWordCache.invalidate("all");
+        sensitiveWordConfig.rebuild();
+    }
+
     @Operation(summary = "新增敏感词")
     @PostMapping("/add")
     public BaseResponse addSensitiveWord(@RequestBody SensitiveWord sensitiveWord) {
@@ -49,7 +60,7 @@ public class SensitiveWordController {
         sensitiveWord.setUpdatedAt(LocalDate.now().toString());
         boolean save = sensitiveWordService.save(sensitiveWord);
         if (save){
-            sensitiveWordCache.invalidate("all");
+            afterChange();
             return ResultUtils.success(true);
         }
         return ResultUtils.error("新增失败");
@@ -59,7 +70,7 @@ public class SensitiveWordController {
     @DeleteMapping("/{id}")
     public boolean deleteSensitiveWord(@PathVariable Integer id) {
         boolean result = sensitiveWordService.removeById(id);
-        if (result) sensitiveWordCache.invalidate("all");
+        if (result) afterChange();
         return result;
     }
 
@@ -78,7 +89,7 @@ public class SensitiveWordController {
     @PutMapping
     public boolean updateSensitiveWord(@RequestBody SensitiveWord sensitiveWord) {
         boolean result = sensitiveWordService.updateById(sensitiveWord);
-        if (result) sensitiveWordCache.invalidate("all");
+        if (result) afterChange();
         return result;
     }
 
