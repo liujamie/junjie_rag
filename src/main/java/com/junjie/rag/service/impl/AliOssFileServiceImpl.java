@@ -9,6 +9,7 @@ import com.github.pagehelper.PageInfo;
 import com.junjie.rag.common.BaseResponse;
 import com.junjie.rag.common.ErrorCode;
 import com.junjie.rag.common.ResultUtils;
+import com.junjie.rag.service.Bm25IndexService;
 import lombok.extern.slf4j.Slf4j;
 import com.junjie.rag.entity.AliOssFile;
 import com.junjie.rag.mapper.AliOssFileMapper;
@@ -44,6 +45,9 @@ public class AliOssFileServiceImpl extends ServiceImpl<AliOssFileMapper, AliOssF
     @Autowired
     private AliOssUtil aliOssUtil;
 
+    @Autowired
+    private Bm25IndexService bm25IndexService;
+
 
     /**
      * 查询文件
@@ -76,6 +80,7 @@ public class AliOssFileServiceImpl extends ServiceImpl<AliOssFileMapper, AliOssF
                 List<String> vectorIds = JSON.parseArray(aliOssFile.getVectorId(), String.class);
                 if (vectorIds != null && !vectorIds.isEmpty()) {
                     vectorStore.delete(vectorIds);
+                    bm25IndexService.deleteDocuments(vectorIds);
                 }
             } catch (Exception e) {
                 log.warn("向量删除失败（可能已不存在）, fileId={}: {}", aliOssFile.getId(), e.getMessage());

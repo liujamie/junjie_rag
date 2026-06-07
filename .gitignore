@@ -42,4 +42,5 @@ data/milvus/
 data/etcd/
 data/minio/
 data/mysql/
+data/bm25/
 logs/

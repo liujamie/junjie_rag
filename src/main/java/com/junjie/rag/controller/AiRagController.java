@@ -23,6 +23,7 @@ import com.junjie.rag.common.ApplicationConstant;
 import com.junjie.rag.context.BaseContext;
 import com.junjie.rag.entity.LlmCallRecord;
 import com.junjie.rag.entity.SensitiveWord;
+import com.junjie.rag.service.HybridSearchService;
 import com.junjie.rag.service.LlmCallRecordService;
 import com.junjie.rag.service.QueryRewriteService;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -89,6 +90,9 @@ public class AiRagController {
     private QueryRewriteService queryRewriteService;
 
     @Autowired
+    private HybridSearchService hybridSearchService;
+
+    @Autowired
     private LlmCallRecordService llmCallRecordService;
 
     @Autowired
@@ -114,7 +118,6 @@ public class AiRagController {
                 你有以下工具可用：
                 1. getCurrentTime / getCurrentDate - 用户询问时间日期时调用
                 2. searchWeb(query) - 搜索网络获取最新信息，关键词越精确越好
-                3. addInfo(question) - 用户查询刘梦杰的个人资料时调用
 
                 当用户问题涉及实时信息、新闻、非知识库内容时，优先使用 searchWeb 工具。
                 """)
@@ -148,7 +151,6 @@ public class AiRagController {
                 你有以下工具可用：
                 1. getCurrentTime / getCurrentDate - 用户询问时间日期时调用
                 2. searchWeb(query) - 搜索网络获取最新信息，关键词越精确越好
-                3. addInfo(question) - 用户查询刘梦杰的个人资料时调用
 
                 当用户问题涉及实时信息、新闻、非知识库内容时，优先使用 searchWeb 工具。
                 """.formatted(documentsText.isEmpty() ? "（无相关文档）" : documentsText);
@@ -218,13 +220,8 @@ public class AiRagController {
                     return;
                 }
 
-                // === 2. 向量检索 ===
-                SearchRequest searchRequest = SearchRequest.builder()
-                        .query(searchQuery)
-                        .similarityThreshold(0.5d)
-                        .topK(15)
-                        .build();
-                List<Document> docs = vectorStore.similaritySearch(searchRequest);
+                // === 2. 混合检索（向量 + BM25 + RRF） ===
+                List<Document> docs = hybridSearchService.hybridSearch(searchQuery, 0.5d);
                 long t2 = System.currentTimeMillis();
                 int preRerankCount = docs.size();
                 log.info("[RAG耗时] 向量检索: {}ms | 召回: {}条", t2 - t1, preRerankCount);
@@ -245,7 +242,7 @@ public class AiRagController {
                 long t4 = System.currentTimeMillis();
                 log.info("[RAG耗时] 构建提示词: {}ms", t4 - t3);
 
-                // === 5. LLM 流式响应 ===
+                // === 5. LLM 流式响应（失败自动重试3次） ===
                 long tLlmStart = System.currentTimeMillis();
                 chatClient.prompt()
                         .user(message)
@@ -253,6 +250,9 @@ public class AiRagController {
                         .advisors(a -> a.param("current_Date", LocalDate.now().toString()).param(ChatMemory.CONVERSATION_ID, currentId))
                         .stream()
                         .content()
+                        .retryWhen(reactor.util.retry.Retry.backoff(3, java.time.Duration.ofSeconds(1))
+                                .filter(e -> e.getMessage() != null && e.getMessage().contains("Connection reset"))
+                                .onRetryExhaustedThrow((spec, sig) -> sig.failure()))
                         .subscribe(
                                 chunk -> {
                                     try {

@@ -3,6 +3,7 @@ package com.junjie.rag.service.impl;
 import com.alibaba.fastjson2.JSON;
 import com.junjie.rag.entity.AliOssFile;
 import com.junjie.rag.service.AliOssFileService;
+import com.junjie.rag.service.Bm25IndexService;
 import com.junjie.rag.utils.AliOssUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
@@ -38,6 +39,9 @@ public class AsyncDocumentProcessor {
     @Autowired
     private AliOssFileService aliOssFileService;
 
+    @Autowired
+    private Bm25IndexService bm25IndexService;
+
     @Async
     public void processFile(String originalFilename, byte[] fileBytes) {
         try {
@@ -55,6 +59,7 @@ public class AsyncDocumentProcessor {
                 List<String> oldVectorIds = JSON.parseArray(existing.getVectorId(), String.class);
                 if (oldVectorIds != null && !oldVectorIds.isEmpty()) {
                     vectorStore.delete(oldVectorIds);
+                    bm25IndexService.deleteDocuments(oldVectorIds);
                 }
                 aliOssUtil.deleteOss(existing.getUrl());
                 aliOssFileService.removeById(existing.getId());
@@ -85,6 +90,18 @@ public class AsyncDocumentProcessor {
             log.info("开始向量化...");
             vectorStore.add(splitDocuments);
             log.info("向量化完成");
+
+            // 同步到 BM25 全文索引
+            try {
+                java.util.List<java.util.Map.Entry<String, String>> bm25Docs = new java.util.ArrayList<>();
+                for (Document doc : splitDocuments) {
+                    bm25Docs.add(new java.util.AbstractMap.SimpleEntry<>(doc.getId(), doc.getText()));
+                }
+                bm25IndexService.addDocuments(bm25Docs);
+                log.info("BM25 索引完成: {}条", bm25Docs.size());
+            } catch (Exception e) {
+                log.warn("BM25 索引失败（不影响主流程）: {}", e.getMessage());
+            }
 
             String fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
             String newFileName = UUID.randomUUID() + fileExtension;
