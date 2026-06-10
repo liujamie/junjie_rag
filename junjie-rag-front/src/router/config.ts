@@ -53,6 +53,18 @@ let routes = [
     },
   },
   {
+    path: "/model",
+    name: "model",
+    component: () => import("@/view/model/ModelSettingsView.vue"),
+    meta: {
+      isMenu: true,
+      description: "模型管理",
+      icon: "Setting",
+      requiresAuth: true,
+      roles: ['admin']
+    },
+  },
+  {
     path: "/user",
     name: "user",
     component: () => import("@/view/user/UserView.vue"),

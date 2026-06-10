@@ -92,6 +92,9 @@ public class AiRagController {
     @Autowired
     private MeterRegistry meterRegistry;
 
+    @Autowired
+    private com.junjie.rag.common.DynamicChatModel dynamicChatModel;
+
     private final ChatMemory chatMemory;
 
     public AiRagController(ChatModel chatModel, ChatMemory chatMemory, VectorStore vectorStore,
@@ -283,7 +286,7 @@ public class AiRagController {
                                     if (maxIdx == 0) log.info("[RAG优化建议] 查询改写慢 → 考虑减少历史轮数(当前取4条)或改用更快的模型");
                                     if (maxIdx == 1) log.info("[RAG优化建议] 向量检索慢 → 检查Milvus索引类型(当前IVF_FLAT)，考虑换HNSW或减小topK(当前15)");
                                     if (maxIdx == 2) log.info("[RAG优化建议] Rerank慢 → 减少rerank候选数(当前{}条)或检查DashScope API响应时间", preRerankCount);
-                                    if (maxIdx == 3) log.info("[RAG优化建议] LLM输出慢 → 检查模型(当前deepseek-v4-flash)响应速度或减小max_tokens");
+                                    if (maxIdx == 3) log.info("[RAG优化建议] LLM输出慢 → 检查模型(当前{})响应速度或减小max_tokens", dynamicChatModel.getCurrentModelName());
                                     log.info("==============================================");
 
                                     // 记录 Micrometer 指标

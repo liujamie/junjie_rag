@@ -155,6 +155,27 @@ CREATE TABLE `llm_call_record` (
                                    INDEX idx_llm_create_time (`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LLM调用记录表';
 
+-- ----------------------------
+-- Table structure for llm_model_config
+-- ----------------------------
+DROP TABLE IF EXISTS `llm_model_config`;
+CREATE TABLE `llm_model_config` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(64) NOT NULL COMMENT '显示名称',
+    `provider` VARCHAR(32) NOT NULL COMMENT '提供商: deepseek/openai/ollama',
+    `base_url` VARCHAR(256) COMMENT 'API 地址',
+    `model_name` VARCHAR(64) COMMENT '模型名',
+    `api_key` VARCHAR(256) COMMENT 'API Key',
+    `temperature` DOUBLE DEFAULT 0.7 COMMENT '温度',
+    `max_tokens` INT DEFAULT 4096 COMMENT '最大输出token',
+    `top_p` DOUBLE DEFAULT 0.9 COMMENT 'Top P',
+    `is_default` TINYINT DEFAULT 0 COMMENT '是否预置',
+    `sort_order` INT DEFAULT 0 COMMENT '排序',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LLM模型配置表';
+
 -- 会话历史存储表
 -- 在 MySQL 中执行
 DROP TABLE IF EXISTS `conversation`;

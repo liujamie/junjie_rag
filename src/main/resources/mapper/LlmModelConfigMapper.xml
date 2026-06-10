@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.junjie.rag.mapper.LlmModelConfigMapper">
+    <resultMap id="BaseResultMap" type="com.junjie.rag.entity.LlmModelConfig">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="provider" column="provider"/>
+        <result property="baseUrl" column="base_url"/>
+        <result property="modelName" column="model_name"/>
+        <result property="apiKey" column="api_key"/>
+        <result property="temperature" column="temperature"/>
+        <result property="maxTokens" column="max_tokens"/>
+        <result property="topP" column="top_p"/>
+        <result property="isDefault" column="is_default"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+</mapper>
